@@ -6,6 +6,7 @@ exports.up = function(knex, Promise) {
 			table.string('username').unique();
 			table.string('password');
 			table.boolean('enabled');
+			table.string('role');
 		}),
 		knex.schema.createTable('location', function(table) {
 			table.increments()

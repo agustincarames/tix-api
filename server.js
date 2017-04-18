@@ -51,12 +51,12 @@ var Measure = Bookshelf.Model.extend({
 app.use(bodyParser());
 app.use(cors());
 
-var tokenSecret = 'verySecret';
+var tokenSecret = 'verySecr' +
+	'et';
 
 passport.use(new LocalStrategy(
   	function(username, password, done) {
     	User.where('username', username).fetch().then((user) => {
-    		console.log(user);
       		if (!user) {
       			return done(null, false, { reason: 'Incorrect username.' });
       		}
@@ -70,9 +70,7 @@ passport.use(new LocalStrategy(
 
 passport.use(new JwtStrategy({ secretOrKey: tokenSecret, jwtFromRequest: ExtractJwt.fromAuthHeader() }, 
 	function(jwt_payload, done) {
-		console.log(jwt_payload)
 	    User.where('username', jwt_payload.userId).fetch().then((user) => {
-	    	console.log(user);
 	        if (user) {
 	            done(null, user.toJSON());
 	        } else {
@@ -84,7 +82,6 @@ passport.use(new JwtStrategy({ secretOrKey: tokenSecret, jwtFromRequest: Extract
 
 passport.use(new BasicStrategy(
   function(userid, password, done) {
-  	console.log('here');
     User.where('username', userid).fetch().then((user) => {
       if (!user) { return done(null, false); }
       if (user.get('password') !== password) { return done(null, false); }
@@ -102,6 +99,7 @@ app.post('/api/register', function(req, res) {
 	User.forge({
 		username: user.username,
 		password: user.password,
+		role: 'user',
 		enabled: true
 	}).save().then((user) => {
 		res.send({
@@ -136,12 +134,12 @@ app.get('/api/user/current', function(req, res) {
 
 app.get('/api/user/:id', function(req, res) {
 	const user = req.user;
-	if(user.id !== parseInt(req.params.id)){
-		res.sendStatus(403);
-	} else {
+	if(user.id === parseInt(req.params.id) || user.attributes.role === 'admin'){
 		User.where('id', req.params.id).fetch().then((user) => {
 	      res.send(user);
 	    });
+	} else {
+        res.sendStatus(403);
 	}
 })
 
@@ -158,10 +156,13 @@ app.post('/api/user/:id/installation', function(req, res) {
 })
 
 app.get('/api/user/:id/installation', function(req, res) {
-	Location.where('user_id', req.user.id).fetchAll().then((locations) => {
-		console.log(locations);
-		res.send(locations);
-	})
+    if(req.user.id === parseInt(req.params.id) || req.user.attributes.role === 'admin') {
+        Location.where('user_id', req.params.id).fetchAll().then((locations) => {
+            res.send(locations);
+    	})
+    } else {
+    	res.sendStatus(403);
+	}
 })
 
 app.get('/api/user/:id/installation/:installationId', function(req,res) {
