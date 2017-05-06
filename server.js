@@ -188,7 +188,7 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
 		downQuality: report.downQuality,
 		timestamp: report.timestamp,
 		location_id: req.params.installationId,
-		provier_id: report.provier_id
+		provider_id: report.provider_id
 	}).save().then((report) => {
 		res.send(report.toJSON());
 	})

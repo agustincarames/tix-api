@@ -1,7 +1,10 @@
 module.exports = {
 
   development: {
-    client: 'postgresql',
+  	pool:{
+  		max:1
+	},
+    client: 'mysql',
     connection: {
 	    host     : '127.0.0.1',
 	    user     : 'tix',
