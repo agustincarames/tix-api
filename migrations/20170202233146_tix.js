@@ -38,6 +38,10 @@ exports.up = function(knex, Promise) {
 			table.foreign('user_id').references('id').inTable('user');
             table.datetime('created_at');
             table.datetime('updated_at');
+		}).createTable('location_provider', function(table) {
+            table.increments('id').primary();
+            table.integer('location_id').unsigned();
+            table.integer('provider_id').unsigned();
 		})
 	])
 };

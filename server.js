@@ -19,23 +19,20 @@ Bookshelf.plugin('registry');
 var Location = Bookshelf.Model.extend({
 	tableName: 'location',
     hasTimestamps: true,
-	user: function() {
-		return this.belongsTo(User, 'user_id');
-	},
 	measures: function() {
         return this.hasMany(Measure);
     },
 	providers: function() {
-		return this.hasMany(Provider);
+		return this.belongsToMany(Provider);
 	}
 });
 
 var User = Bookshelf.Model.extend({
-  tableName: 'user',
-    hasTimestamps: true,
-  locations: function(){
-  		return this.hasMany(Location)
-  },
+	tableName: 'user',
+	hasTimestamps: true,
+    locations: function(){
+		return this.hasMany(Location)
+	},
 });
 
 var Provider = Bookshelf.Model.extend({
@@ -43,6 +40,9 @@ var Provider = Bookshelf.Model.extend({
     hasTimestamps: true,
 	measures: function() {
 		return this.hasMany(Measure);
+	},
+	locations: function() {
+		return this.belongsToMany(Location);
 	}
 });
 
@@ -57,11 +57,15 @@ var Measure = Bookshelf.Model.extend({
 	}
 });
 
+var LocationProvider = Bookshelf.Model.extend({
+	tableName: 'location_provider',
+    hasTimestamps: false
+});
+
 app.use(bodyParser());
 app.use(cors());
 
-var tokenSecret = 'verySecr' +
-	'et';
+var tokenSecret = 'verySecret';
 
 passport.use(new LocalStrategy(
   	function(username, password, done) {
@@ -148,6 +152,10 @@ app.post('/api/login', function(req, res, next) {
   	})(req, res, next);
 })
 
+app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
+	next();
+})
+
 
 app.get('/api/user/current', function(req, res) {
 	res.send(req.user);
@@ -188,6 +196,7 @@ app.get('/api/user/:id/installation', function(req, res) {
 })
 
 app.get('/api/user/:id/installation/:installationId', function(req,res) {
+	console.log(req.params.installationId);
 	Location.where('id', req.params.installationId).fetch().then((installation) => {
 		res.send(installation);
 	})
@@ -200,7 +209,7 @@ app.get('/api/user/:id/installation/:installationId/reports', function(req, res)
 })
 
 app.get('/api/user/:id/reports', function(req, res) {
-	Report.where('user_id', req.params.id).fetchAll().then((data) => {
+    Measure.where('user_id', req.params.id).fetchAll().then((data) => {
 		res.send(data);
 	})
 })
@@ -215,11 +224,47 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
     };
 
     PythonShell.run('info.py', options, function (err, result) {
-        if (err) throw err;
-        res.send(result);
+        if(err) res.status(500).send('Could not calculate ipToAs');
+
+        const as = result[0].split(',')[0];
+        Provider.where('name', as).fetchAll().then((data) => {
+			if(data.length == 0){
+				Provider.forge({
+					name: as
+				}).save().then((provider) => {
+					createReport(res, report, provider.id, req.params.installationId, req.params.id);
+				})
+			} else {
+				const provider = data.models;
+                createReport(res, report, provider.id, req.params.installationId, req.params.id);
+			}
+		})
     });
 
 })
+
+function createReport(res, report, provider_id, installation_id, user_id){
+    LocationProvider.where({location_id: installation_id, provider_id: provider_id}).fetch().then((relation) => {
+    	if(!relation){
+    		LocationProvider.forge({location_id: installation_id, provider_id: provider_id}).save();
+		}
+	});
+	Measure.forge({
+        usagePercentage: report.usagePercentage,
+        upUsage: report.upUsage,
+		downUsage: report.downUsage,
+    	upQuality: report.upQuality,
+    	downQuality: report.downQuality,
+    	timestamp: report.timestamp,
+    	location_id: installation_id,
+    	provider_id: provider_id,
+    	user_id: user_id
+	}).save().then((measure) => res.send(measure));
+
+}
+
+
+
 
 app.listen(3001, function () {
   console.log('Example app listening on port 3001!')
