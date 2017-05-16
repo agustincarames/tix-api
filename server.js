@@ -148,9 +148,6 @@ app.post('/api/login', function(req, res, next) {
   	})(req, res, next);
 })
 
-app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
-	next();
-})
 
 app.get('/api/user/current', function(req, res) {
 	res.send(req.user);
@@ -222,17 +219,7 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
         res.send(result);
     });
 
-
-
-
 })
-
-function getProvider(providerAs) {
-	return new Promise((resolve, reject) => {
-
-	})
-}
-
 
 app.listen(3001, function () {
   console.log('Example app listening on port 3001!')
