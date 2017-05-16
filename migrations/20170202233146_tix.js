@@ -1,44 +1,52 @@
 
 exports.up = function(knex, Promise) {
 	return Promise.all([
-        knex.raw('SET foreign_key_checks = 0;'),
-
 		knex.schema.createTable('user', function(table) {
-			table.increments('id');
+			table.increments('id').primary();
 			table.string('username').unique();
 			table.string('password');
 			table.boolean('enabled');
 			table.string('role');
-		}),
-		knex.schema.createTable('location', function(table) {
-			table.increments('id');
+			table.datetime('created_at');
+            table.datetime('updated_at');
+		}).createTable('provider', function(table) {
+            table.increments('id').primary();
+            table.string('name');
+            table.datetime('created_at');
+            table.datetime('updated_at');
+        }).createTable('location', function(table) {
+			table.increments('id').primary();
 			table.string('name');
 			table.string('publickey');
-			table.integer('user_id').unique().references('user.id');
-		}),
-		knex.schema.createTable('provider', function(table) {
-			table.increments('id');
-			table.string('name');
-		}),
-		knex.schema.createTable('measure', function(table) {
-			table.increments();
+			table.integer('user_id').unsigned();
+			table.foreign('user_id').references('user.id');
+            table.datetime('created_at');
+            table.datetime('updated_at');
+		}).createTable('measure', function(table) {
+			table.increments('id').primary();
 			table.integer('usagePercentage');
 			table.integer('upUsage');
 			table.integer('downUsage');
 			table.integer('upQuality');
 			table.integer('downQuality');
-			table.timestamp('timestamp');
-			table.integer('location_id').references('location.id');
-			table.integer('provider_id').references('provider.id');
+			table.datetime('timestamp');
+            table.integer('location_id').unsigned();
+            table.integer('provider_id').unsigned();
+            table.integer('user_id').unsigned();
+			table.foreign('location_id').references('id').inTable('location');
+			table.foreign('provider_id').references('id').inTable('provider');
+			table.foreign('user_id').references('id').inTable('user');
+            table.datetime('created_at');
+            table.datetime('updated_at');
 		})
 	])
 };
 
 exports.down = function(knex, Promise) {
 	return Promise.all([
-    	knex.schema.dropTable('measure'),
-    	knex.schema.dropTable('provider'),
-    	knex.schema.dropTable('location'),
-    	knex.schema.dropTable('user')
+    	knex.schema.dropTable('measure')
+			.dropTable('provider')
+    		.dropTable('location')
+    		.dropTable('user')
 	])
 };

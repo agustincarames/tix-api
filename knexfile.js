@@ -1,9 +1,7 @@
 module.exports = {
 
   development: {
-  	pool:{
-  		max:1
-	},
+  	debug: true,
     client: 'mysql',
     connection: {
 	    host     : '127.0.0.1',

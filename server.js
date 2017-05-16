@@ -9,22 +9,30 @@ var LocalStrategy = require('passport-local').Strategy;
 var jwt = require('jwt-simple');
 var JwtStrategy = require('passport-jwt').Strategy;
 var ExtractJwt = require('passport-jwt').ExtractJwt;
-
+var sa = require('superagent');
 var db  = require('./db');
 var Bookshelf = require('bookshelf')(db);
+var PythonShell = require('python-shell');
+
+Bookshelf.plugin('registry');
 
 var Location = Bookshelf.Model.extend({
 	tableName: 'location',
+    hasTimestamps: true,
 	user: function() {
-		return this.belongsTo(User);
+		return this.belongsTo(User, 'user_id');
 	},
 	measures: function() {
-		return this.hasMany(Measure);
+        return this.hasMany(Measure);
+    },
+	providers: function() {
+		return this.hasMany(Provider);
 	}
 });
 
 var User = Bookshelf.Model.extend({
   tableName: 'user',
+    hasTimestamps: true,
   locations: function(){
   		return this.hasMany(Location)
   },
@@ -32,6 +40,7 @@ var User = Bookshelf.Model.extend({
 
 var Provider = Bookshelf.Model.extend({
 	tableName: 'provider',
+    hasTimestamps: true,
 	measures: function() {
 		return this.hasMany(Measure);
 	}
@@ -39,11 +48,12 @@ var Provider = Bookshelf.Model.extend({
 
 var Measure = Bookshelf.Model.extend({
 	tableName: 'measure',
+    hasTimestamps: true,
 	provider: function() {
-		return this.belongsTo(Provider);
+		return this.belongsTo(Provider, 'provider_id');
 	},
 	location: function() {
-		return this.belongsTo(Location);
+		return this.belongsTo(Location, 'location_id');
 	}
 });
 
@@ -95,20 +105,36 @@ app.get('/api', function (req, res) {
 
 app.post('/api/register', function(req, res) {
 	const user = req.body;
-	User.forge({
-		username: user.username,
-		password: user.password,
-		role: 'user',
-		enabled: true
-	}).save().then((user) => {
-		res.send({
-			username: user.get('username'), 
-			id: user.get('id'),
-		});
-	}, (err) => {
-		console.log(err);
+	console.log(user);
+	if(!user.captcharesponse || !user.username || !user.password1 || !user.password2 || user.password1 !== user.password2 ) {
 		res.sendStatus(403);
-	})
+	}
+
+    sa.post('https://www.google.com/recaptcha/api/siteverify')
+		.send({
+			secret: '6LexqSAUAAAAAGP3Nw4RnKwYn_KQc7BH-jmFksjN',
+			response: user.captcharesponse,
+			remoteip: req.connection.remoteAddress
+		})
+		.end(function(err, response) {
+			if(err){ console.log(err); res.sendStatus(403); }
+			console.log(user);
+            User.forge({
+                username: user.username,
+                password: user.password1,
+                role: 'user',
+                enabled: true
+            }).save().then((user) => {
+                res.send({
+                    username: user.get('username'),
+                    id: user.get('id'),
+                });
+            }, (error) => {
+                console.log(error);
+                res.sendStatus(403);
+            })
+		})
+
 })
 
 app.post('/api/login', function(req, res, next) {
@@ -176,22 +202,37 @@ app.get('/api/user/:id/installation/:installationId/reports', function(req, res)
 	})
 })
 
+app.get('/api/user/:id/reports', function(req, res) {
+	Report.where('user_id', req.params.id).fetchAll().then((data) => {
+		res.send(data);
+	})
+})
+
 app.post('/api/user/:id/installation/:installationId/reports', function(req,res) {
 	const user = req.user;
 	const report = req.body;
-	Report.forge({
-		usagePercentage: report.usagePercentage,
-		upUsage: report.upUsage,
-		downUsage: report.downUsage,
-		upQuality: report.upQuality,
-		downQuality: report.downQuality,
-		timestamp: report.timestamp,
-		location_id: req.params.installationId,
-		provider_id: report.provider_id
-	}).save().then((report) => {
-		res.send(report.toJSON());
-	})
+
+    var options = {
+        scriptPath: 'ipToas',
+        args: [report.ip]
+    };
+
+    PythonShell.run('info.py', options, function (err, result) {
+        if (err) throw err;
+        res.send(result);
+    });
+
+
+
+
 })
+
+function getProvider(providerAs) {
+	return new Promise((resolve, reject) => {
+
+	})
+}
+
 
 app.listen(3001, function () {
   console.log('Example app listening on port 3001!')
