@@ -148,7 +148,7 @@ app.post('/api/login', function(req, res, next) {
 	      return res.status(401).json({ reason: 'User not existent' });
 	    }
 	    var token = jwt.encode({ userId: user.username}, tokenSecret);
-	    res.status(200).json({ token : token , username: user.username});
+	    res.status(200).json({ token : token , username: user.username, id: user.id });
   	})(req, res, next);
 })
 
@@ -161,6 +161,11 @@ app.get('/api/user/current', function(req, res) {
 	res.send(req.user);
 })
 
+app.get('/api/user/current/installation',function(req,res) {
+    Location.where('user_id', req.user.id).fetchAll().then((locations) => {
+        res.send(locations);
+    })
+})
 
 app.get('/api/user/:id', function(req, res) {
 	const user = req.user;
@@ -197,7 +202,7 @@ app.get('/api/user/:id/installation', function(req, res) {
 
 app.get('/api/user/:id/installation/:installationId', function(req,res) {
 	console.log(req.params.installationId);
-	Location.where('id', req.params.installationId).fetch().then((installation) => {
+	Location.where('id', req.params.installationId).fetch({withRelated: ['providers']}).then((installation) => {
 		res.send(installation);
 	})
 })
@@ -260,11 +265,7 @@ function createReport(res, report, provider_id, installation_id, user_id){
     	provider_id: provider_id,
     	user_id: user_id
 	}).save().then((measure) => res.send(measure));
-
 }
-
-
-
 
 app.listen(3001, function () {
   console.log('Example app listening on port 3001!')
