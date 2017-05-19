@@ -192,7 +192,7 @@ app.post('/api/user/:id/installation', function(req, res) {
 
 app.get('/api/user/:id/installation', function(req, res) {
     if(req.user.id === parseInt(req.params.id) || req.user.attributes.role === 'admin') {
-        Location.where('user_id', req.params.id).fetchAll().then((locations) => {
+        Location.where('user_id', req.params.id).fetchAll({withRelated: ['providers']}).then((locations) => {
             res.send(locations);
     	})
     } else {
