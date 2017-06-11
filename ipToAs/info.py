@@ -145,7 +145,7 @@ def pais_num_name_nic(ip_dire, idioma):
             nameas = nombre_as(num_as)
             nic = nic_as(num_as)
         if pais != 'UNKNOWN':
-            namepais = selectpaisname(pais, idioma)
+            namepais = 'AR';
     else:
         return False
 
