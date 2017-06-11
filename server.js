@@ -156,6 +156,17 @@ app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }
 	next();
 })
 
+app.get('/api/user', function(req, res){
+	const user = req.user;
+	if(req.user.attributes.role === 'admin') {
+        User.fetchAll().then((users) => {
+            res.send(users);
+    	});
+    }else{
+		res.sendStatus(401, "You are not authorized to perform that action");
+	}
+})
+
 
 app.get('/api/user/current', function(req, res) {
 	res.send(req.user);

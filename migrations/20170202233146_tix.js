@@ -24,11 +24,11 @@ exports.up = function(knex, Promise) {
             table.datetime('updated_at');
 		}).createTable('measure', function(table) {
 			table.increments('id').primary();
-			table.integer('usagePercentage');
-			table.integer('upUsage');
-			table.integer('downUsage');
-			table.integer('upQuality');
-			table.integer('downQuality');
+			table.double('usagePercentage');
+			table.double('upUsage');
+			table.double('downUsage');
+			table.double('upQuality');
+			table.double('downQuality');
 			table.datetime('timestamp');
             table.integer('location_id').unsigned();
             table.integer('provider_id').unsigned();
