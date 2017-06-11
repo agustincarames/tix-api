@@ -98,7 +98,7 @@ passport.use(new BasicStrategy(
     User.where('username', userid).fetch().then((user) => {
       if (!user) { return done(null, false); }
       if (user.get('password') !== password) { return done(null, false); }
-      return done(null, user);
+      return done(null, user.toJSON());
     });
   }
 ));
@@ -158,7 +158,7 @@ app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }
 
 app.get('/api/user/all', function(req, res){
 	const user = req.user;
-	if(req.user.attributes.role === 'admin') {
+	if(user.role === 'admin') {
         User.fetchAll().then((users) => {
             res.send(users);
     	});
@@ -180,7 +180,7 @@ app.get('/api/user/current/installation',function(req,res) {
 
 app.get('/api/user/:id', function(req, res) {
 	const user = req.user;
-	if(user.id === parseInt(req.params.id) || user.attributes.role === 'admin'){
+	if(user.id === parseInt(req.params.id) || user.role === 'admin'){
 		User.where('id', req.params.id).fetch().then((user) => {
 	      res.send(user);
 	    });
@@ -202,7 +202,7 @@ app.post('/api/user/:id/installation', function(req, res) {
 })
 
 app.get('/api/user/:id/installation', function(req, res) {
-    if(req.user.id === parseInt(req.params.id) || req.user.attributes.role === 'admin') {
+    if(req.user.id === parseInt(req.params.id) || req.user.role === 'admin') {
         Location.where('user_id', req.params.id).fetchAll({withRelated: ['providers']}).then((locations) => {
             res.send(locations);
     	})
