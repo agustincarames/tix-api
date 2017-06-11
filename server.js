@@ -156,7 +156,7 @@ app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }
 	next();
 })
 
-app.get('/api/user', function(req, res){
+app.get('/api/user/all', function(req, res){
 	const user = req.user;
 	if(req.user.attributes.role === 'admin') {
         User.fetchAll().then((users) => {
