@@ -148,7 +148,7 @@ app.post('/api/login', function(req, res, next) {
 	      return res.status(401).json({ reason: 'User not existent' });
 	    }
 	    var token = jwt.encode({ userId: user.username}, tokenSecret);
-	    res.status(200).json({ token : token , username: user.username, id: user.id });
+	    res.status(200).json({ token : token , username: user.username, id: user.id, role: user.role });
   	})(req, res, next);
 })
 
