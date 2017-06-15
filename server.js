@@ -224,6 +224,10 @@ app.get('/api/user/:id/installation/:installationId/reports', function(req, res)
 	})
 })
 
+app.get('/api/user/:id/reports/aggregated', function(req, res) {
+	Measure
+})
+
 app.get('/api/user/:id/reports', function(req, res) {
     Measure.where('user_id', req.params.id).fetchAll().then((data) => {
 		res.send(data);
@@ -271,7 +275,7 @@ function createReport(res, report, provider_id, installation_id, user_id){
 		downUsage: report.downUsage,
     	upQuality: report.upQuality,
     	downQuality: report.downQuality,
-    	timestamp: report.timestamp,
+    	timestamp: new Date(report.timestamp * 1000),
     	location_id: installation_id,
     	provider_id: provider_id,
     	user_id: user_id
