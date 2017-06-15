@@ -247,15 +247,16 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
         if(err) res.status(500).send('Could not calculate ipToAs');
 
         const as = result[0].split(',')[0];
-        Provider.where('name', as).fetchAll().then((data) => {
-			if(data.length == 0){
+        console.log("AS found: " + as);
+        Provider.where('name', as).fetch().then((provider) => {
+        	console.log(provider);
+			if(!provider){
 				Provider.forge({
 					name: as
 				}).save().then((provider) => {
 					createReport(res, report, provider.id, req.params.installationId, req.params.id);
 				})
 			} else {
-				const provider = data.models;
                 createReport(res, report, provider.id, req.params.installationId, req.params.id);
 			}
 		})
