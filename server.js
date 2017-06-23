@@ -153,7 +153,12 @@ app.post('/api/login', function(req, res, next) {
 })
 
 app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
-	next();
+    if(req.user.id === parseInt(req.params.id) || req.user.role === 'admin') {
+        next();
+    } else{
+    	res.sendStatus(401);
+	}
+
 })
 
 app.get('/api/user/all', function(req, res){
@@ -179,14 +184,9 @@ app.get('/api/user/current/installation',function(req,res) {
 })
 
 app.get('/api/user/:id', function(req, res) {
-	const user = req.user;
-	if(user.id === parseInt(req.params.id) || user.role === 'admin'){
-		User.where('id', req.params.id).fetch().then((user) => {
-	      res.send(user);
-	    });
-	} else {
-        res.sendStatus(403);
-	}
+	User.where('id', req.params.id).fetch().then((user) => {
+	  res.send(user);
+	});
 })
 
 app.post('/api/user/:id/installation', function(req, res) {
@@ -202,20 +202,19 @@ app.post('/api/user/:id/installation', function(req, res) {
 })
 
 app.get('/api/user/:id/installation', function(req, res) {
-    if(req.user.id === parseInt(req.params.id) || req.user.role === 'admin') {
-        Location.where('user_id', req.params.id).fetchAll({withRelated: ['providers']}).then((locations) => {
-            res.send(locations);
-    	})
-    } else {
-    	res.sendStatus(403);
-	}
+	Location.where('user_id', req.params.id).fetchAll({withRelated: ['providers']}).then((locations) => {
+		res.send(locations);
+	})
 })
 
 app.get('/api/user/:id/installation/:installationId', function(req,res) {
-	console.log(req.params.installationId);
-	Location.where('id', req.params.installationId).fetch({withRelated: ['providers']}).then((installation) => {
+	Location.where('id', req.params.installationId).where('user_id', req.params.id).fetch({withRelated: ['providers']}).then((installation) => {
 		res.send(installation);
 	})
+})
+
+app.delete('/api/user/:id/installation/:installationId', function(req, res){
+	Location.where('id', req.params.installationId).where('user_id', req.params.id).save({enabled: false}).then(() => res.sendStatus(200));
 })
 
 app.get('/api/user/:id/reports', function(req, res) {
