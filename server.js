@@ -218,20 +218,23 @@ app.get('/api/user/:id/installation/:installationId', function(req,res) {
 	})
 })
 
-app.get('/api/user/:id/installation/:installationId/reports', function(req, res) {
-	Report.where('location_id', req.params.installationId).fetchAll().then((data) => {
-		res.send(data);
-	})
-})
-
-app.get('/api/user/:id/reports/aggregated', function(req, res) {
-	Measure
-})
-
 app.get('/api/user/:id/reports', function(req, res) {
-    Measure.where('user_id', req.params.id).fetchAll().then((data) => {
-		res.send(data);
-	})
+    var query = Measure.where('user_id', req.params.id);
+    if(req.query.installationId){
+        query = query.where('location_id', req.query.installationId);
+    }
+    if(req.query.provider_id && req.query.provider_id > 0){
+        query = query.where('provider_id', req.query.providerId);
+    }
+    if(req.query.startDate){
+        query = query.where('timestamp', '>' , req.query.startDate);
+    }
+    if(req.query.endDate){
+        query = query.where('timestamp', '<', req.query.endDate);
+    }
+    query.fetchAll().then((data) => {
+        res.send(data);
+    })
 })
 
 app.post('/api/user/:id/installation/:installationId/reports', function(req,res) {
@@ -271,7 +274,6 @@ function createReport(res, report, provider_id, installation_id, user_id){
 		}
 	});
 	Measure.forge({
-        usagePercentage: report.usagePercentage,
         upUsage: report.upUsage,
 		downUsage: report.downUsage,
     	upQuality: report.upQuality,

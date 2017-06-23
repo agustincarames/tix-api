@@ -17,7 +17,7 @@ exports.up = function(knex, Promise) {
         }).createTable('location', function(table) {
 			table.increments('id').primary();
 			table.string('name');
-			table.string('publickey');
+			table.string('publickey', 500);
 			table.integer('user_id').unsigned();
 			table.foreign('user_id').references('user.id');
             table.datetime('created_at');
