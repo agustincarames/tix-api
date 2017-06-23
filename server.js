@@ -13,6 +13,7 @@ var sa = require('superagent');
 var db  = require('./db');
 var Bookshelf = require('bookshelf')(db);
 var PythonShell = require('python-shell');
+var Crypto = require('crypto');
 
 Bookshelf.plugin('registry');
 
@@ -67,13 +68,26 @@ app.use(cors());
 
 var tokenSecret = 'verySecret';
 
+function generateSalt() {
+    var salt = Crypto.randomBytes(126);
+    return salt.toString('base64');
+};
+
+function hashPassword(password, salt){
+    var hmac =  Crypto.createHmac('sha512', salt);
+    hmac.setEncoding("base64");
+    hmac.write(password);
+    hmac.end();
+    return hmac.read();
+};
+
 passport.use(new LocalStrategy(
   	function(username, password, done) {
     	User.where('username', username).fetch().then((user) => {
       		if (!user) {
       			return done(null, false, { reason: 'Incorrect username.' });
       		}
-      		if (password != user.get('password')) {
+      		if (user.get('password') != hashPassword(password, user.get('salt'))) {
         		return done(null, false, { reason: 'Incorrect password.' });
       		}
       		return done(null, user.toJSON());
@@ -97,7 +111,7 @@ passport.use(new BasicStrategy(
   function(userid, password, done) {
     User.where('username', userid).fetch().then((user) => {
       if (!user) { return done(null, false); }
-      if (user.get('password') !== password) { return done(null, false); }
+      if (hashPassword(password, user.get('salt')) !== user.get('password')) { return done(null, false); }
       return done(null, user.toJSON());
     });
   }
@@ -108,44 +122,47 @@ app.get('/api', function (req, res) {
 })
 
 app.post('/api/register', function(req, res) {
-	const user = req.body;
-	console.log(user);
-	if(!user.captcharesponse || !user.username || !user.password1 || !user.password2 || user.password1 !== user.password2 ) {
-		res.sendStatus(403);
-	}
-
-    sa.post('https://www.google.com/recaptcha/api/siteverify')
+    const user = req.body;
+    if(!user.captcharesponse || !user.username || !user.password1 || !user.password2 || user.password1 !== user.password2 ) {
+        res.status(400).json({reason: 'Incomplete parameters'});
+    }
+	sa.post('https://www.google.com/recaptcha/api/siteverify')
 		.send({
 			secret: '6LexqSAUAAAAAGP3Nw4RnKwYn_KQc7BH-jmFksjN',
 			response: user.captcharesponse,
 			remoteip: req.connection.remoteAddress
 		})
 		.end(function(err, response) {
-			if(err){ console.log(err); res.sendStatus(403); }
-			console.log(user);
-            User.forge({
-                username: user.username,
-                password: user.password1,
-                role: 'user',
-                enabled: true
-            }).save().then((user) => {
-                res.send({
-                    username: user.get('username'),
-                    id: user.get('id'),
-                });
-            }, (error) => {
-                console.log(error);
-                res.sendStatus(403);
-            })
-		})
+			if(err){ console.log(err); res.status(403).json({reason: 'Error while processing Captcha'}); }
+			createUser(user, res)
 
+		})
 })
+
+function createUser(user, res) {
+    var salt = generateSalt();
+    var hashedPassword = hashPassword(user.password1, salt);
+    User.forge({
+        username: user.username,
+        password: hashedPassword,
+        role: 'user',
+        salt: salt,
+        enabled: true
+    }).save().then((user) => {
+        res.send({
+            username: user.get('username'),
+            id: user.get('id'),
+        });
+    }, (error) => {
+        res.status(403).json({reason: 'Error while creating user'});
+    })
+}
 
 app.post('/api/login', function(req, res, next) {
    	passport.authenticate('local', function(err, user, info) {
 	    if (err) { return next(err) }
 	    if (!user) {
-	      return res.status(401).json({ reason: 'User not existent' });
+	      return res.status(401).json({ reason: 'User/Password incorrect' });
 	    }
 	    var token = jwt.encode({ userId: user.username}, tokenSecret);
 	    res.status(200).json({ token : token , username: user.username, id: user.id, role: user.role });
@@ -189,6 +206,12 @@ app.get('/api/user/:id', function(req, res) {
 	});
 })
 
+app.put('/api/user/:id', function(req, res) {
+	User.where('id', req.params.id).fetch().then((user) => {
+		user.save({username: req.body.username})
+	})
+})
+
 app.post('/api/user/:id/installation', function(req, res) {
 	const user = req.user;
 	const location = req.body;
@@ -214,9 +237,14 @@ app.get('/api/user/:id/installation/:installationId', function(req,res) {
 	})
 })
 
+app.put('/api/user/:id/installation/:installationId', function(req, res) {
+    Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).fetch()
+        .then(installation => installation.save({name: req.body.name},{method: 'update', patch: true}).then(installation => res.send(installation)));
+})
+
 app.delete('/api/user/:id/installation/:installationId', function(req, res){
-	Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).find()
-		.set({enabled: false}).save({method: 'update', patch: true}).then((installation) => res.send(installation));
+    Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).fetch()
+        .then((installation) => installation.save({enabled: false},{method: 'update', patch: true}).then(installation => res.send(installation)));
 })
 
 app.get('/api/user/:id/reports', function(req, res) {
@@ -253,7 +281,6 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
         const as = result[0].split(',')[0];
         console.log("AS found: " + as);
         Provider.where('name', as).fetch().then((provider) => {
-        	console.log(provider);
 			if(!provider){
 				Provider.forge({
 					name: as

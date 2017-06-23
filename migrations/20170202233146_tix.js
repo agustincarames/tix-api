@@ -4,6 +4,7 @@ exports.up = function(knex, Promise) {
 		knex.schema.createTable('user', function(table) {
 			table.increments('id').primary();
 			table.string('username').unique();
+			table.string('salt');
 			table.string('password');
 			table.boolean('enabled');
 			table.string('role');
