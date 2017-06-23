@@ -123,6 +123,19 @@ app.get('/api', function (req, res) {
   res.send('Hello World!')
 })
 
+app.get('/api/migrate', function (req, res) {
+	User.fetchAll().then((users) => {
+		users.forEach((user) => {
+			var salt = generateSalt();
+			var hashedPassword = hashPassword(user.get('password'), salt);
+			user.save({password: hashedPassword, salt: salt}, {
+				method: 'update',
+				patch: true
+			})
+        })
+	})
+})
+
 app.post('/api/register', function(req, res) {
     const user = req.body;
     if(!user.captcharesponse || !user.username || !user.password1 || !user.password2 || user.password1 !== user.password2 ) {
@@ -193,7 +206,7 @@ app.get('/api/user/current', function(req, res) {
 
 app.get('/api/user/current/installation',function(req,res) {
     Location.where('user_id', req.user.id).fetchAll().then((locations) => {
-        res.send(R.map(locationContract, locations));
+        res.send(R.map(installationContract, locations));
     })
 })
 
@@ -256,7 +269,7 @@ app.get('/api/user/:id/installation', function(req, res) {
         return;
     }
 	Location.where('user_id', req.params.id).where('enabled', true).fetchAll({withRelated: ['providers']}).then((locations) => {
-		res.send(R.map(installationContract, locations));
+		res.send(locations.map((location) => installationContract(location)));
 	})
 })
 
@@ -306,8 +319,8 @@ app.get('/api/user/:id/reports', function(req, res) {
     if(req.query.endDate){
         query = query.where('timestamp', '<', req.query.endDate);
     }
-    query.fetchAll().then((report) => {
-        res.send(measureContract(report));
+    query.fetchAll().then((reports) => {
+        res.send(reports.map((report) => measureContract(report)));
     })
 })
 
@@ -363,32 +376,35 @@ function createReport(res, report, provider_id, installation_id, user_id){
 }
 
 function userContract(user) {
-	return {
-		username: user.username,
-		id: user.id
-	}
+    return {
+        username: user.get('username'),
+        role: user.get('role'),
+        id: user.id
+    }
 }
 
 function measureContract(measure){
-	return {
-		upUsage: measure.upUsage,
-		downUsage: measure.downUsage,
-		upQuality: measure.upQuality,
-		downQuality: measure.downQuality,
-		timestamp: measure.timestamp,
-		location_id: measure.location_id,
-		provider_id: measure.provider_id,
-		user_id: measure.user_id
-	}
+    return {
+        upUsage: measure.get('upUsage'),
+        downUsage: measure.get('downUsage'),
+        upQuality: measure.get('upQuality'),
+        downQuality: measure.get('downQuality'),
+        timestamp: measure.get('timestamp'),
+        location_id: measure.get('location_id'),
+        provider_id: measure.get('provider_id'),
+        user_id: measure.get('user_id')
+    }
 }
 
 function installationContract(installation) {
-	return {
-		name: installation.name,
-		publickey: installation.publickey,
-        providers: installation.providers
-	}
+    return {
+        id: installation.id,
+        name: installation.get('name'),
+        publickey: installation.get('publickey'),
+        providers: installation.get('providers')
+    }
 }
+
 
 app.listen(3001, function () {
   console.log('Example app listening on port 3001!')
