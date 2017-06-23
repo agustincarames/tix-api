@@ -215,7 +215,8 @@ app.get('/api/user/:id/installation/:installationId', function(req,res) {
 })
 
 app.delete('/api/user/:id/installation/:installationId', function(req, res){
-	Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).save({enabled: false}).then((installation) => res.send(installation));
+	Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).find()
+		.set({enabled: false}).save({method: 'update', patch: true}).then((installation) => res.send(installation));
 })
 
 app.get('/api/user/:id/reports', function(req, res) {
