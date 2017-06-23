@@ -195,7 +195,8 @@ app.post('/api/user/:id/installation', function(req, res) {
 	Location.forge({
 		name: location.name, 
 		publickey: location.publickey, 
-		user_id: user.id
+		user_id: user.id,
+		enabled: true
 	}).save().then( (location) => {
 		res.send(location.toJSON());
 	});
