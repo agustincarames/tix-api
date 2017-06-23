@@ -203,19 +203,19 @@ app.post('/api/user/:id/installation', function(req, res) {
 })
 
 app.get('/api/user/:id/installation', function(req, res) {
-	Location.where('user_id', req.params.id).fetchAll({withRelated: ['providers']}).then((locations) => {
+	Location.where('user_id', req.params.id).where('enabled', true).fetchAll({withRelated: ['providers']}).then((locations) => {
 		res.send(locations);
 	})
 })
 
 app.get('/api/user/:id/installation/:installationId', function(req,res) {
-	Location.where('id', req.params.installationId).where('user_id', req.params.id).fetch({withRelated: ['providers']}).then((installation) => {
+	Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).fetch({withRelated: ['providers']}).then((installation) => {
 		res.send(installation);
 	})
 })
 
 app.delete('/api/user/:id/installation/:installationId', function(req, res){
-	Location.where('id', req.params.installationId).where('user_id', req.params.id).save({enabled: false}).then(() => res.sendStatus(200));
+	Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).save({enabled: false}).then((installation) => res.send(installation));
 })
 
 app.get('/api/user/:id/reports', function(req, res) {
