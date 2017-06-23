@@ -29,6 +29,7 @@
     "pg": "^6.1.2",
     "pg-hstore": "^2.3.2",
     "python-shell": "^0.4.0",
+    "ramda": "^0.24.1",
     "sequelize": "^3.29.0",
     "superagent": "^3.5.2",
     "whatwg-fetch": "^2.0.2"

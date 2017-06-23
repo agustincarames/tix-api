@@ -4,7 +4,6 @@ var bodyParser = require('body-parser');
 var passport = require('passport');
 var BasicStrategy = require('passport-http').BasicStrategy;
 var cors = require('cors');
-var passport = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var jwt = require('jwt-simple');
 var JwtStrategy = require('passport-jwt').Strategy;
@@ -14,6 +13,7 @@ var db  = require('./db');
 var Bookshelf = require('bookshelf')(db);
 var PythonShell = require('python-shell');
 var Crypto = require('crypto');
+var R = require('ramda');
 
 Bookshelf.plugin('registry');
 
@@ -74,6 +74,8 @@ function generateSalt() {
 };
 
 function hashPassword(password, salt){
+	console.log(password);
+	console.log(salt);
     var hmac =  Crypto.createHmac('sha512', salt);
     hmac.setEncoding("base64");
     hmac.write(password);
@@ -87,7 +89,7 @@ passport.use(new LocalStrategy(
       		if (!user) {
       			return done(null, false, { reason: 'Incorrect username.' });
       		}
-      		if (user.get('password') != hashPassword(password, user.get('salt'))) {
+      		if (user.get('password') !== hashPassword(password, user.get('salt'))) {
         		return done(null, false, { reason: 'Incorrect password.' });
       		}
       		return done(null, user.toJSON());
@@ -170,22 +172,17 @@ app.post('/api/login', function(req, res, next) {
 })
 
 app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
-    if(req.user.id === parseInt(req.params.id) || req.user.role === 'admin') {
         next();
-    } else{
-    	res.sendStatus(401);
-	}
-
 })
 
 app.get('/api/user/all', function(req, res){
 	const user = req.user;
 	if(user.role === 'admin') {
         User.fetchAll().then((users) => {
-            res.send(users);
+            res.send(R.map(userContract, users));
     	});
     }else{
-		res.sendStatus(401, "You are not authorized to perform that action");
+		res.status(401).json({reason: "You are not authorized to perform that action"});
 	}
 })
 
@@ -196,23 +193,51 @@ app.get('/api/user/current', function(req, res) {
 
 app.get('/api/user/current/installation',function(req,res) {
     Location.where('user_id', req.user.id).fetchAll().then((locations) => {
-        res.send(locations);
+        res.send(R.map(locationContract, locations));
     })
 })
 
 app.get('/api/user/:id', function(req, res) {
+    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+        res.status(401).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
 	User.where('id', req.params.id).fetch().then((user) => {
-	  res.send(user);
+		res.send(userContract(user));
 	});
+
+
 })
 
 app.put('/api/user/:id', function(req, res) {
+    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+        res.status(401).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
+	var body = req.body;
 	User.where('id', req.params.id).fetch().then((user) => {
-		user.save({username: req.body.username})
+        if (hashPassword(body.oldPassword, user.get('salt')) !== user.get('password')) {
+            res.code(403).json({reason: 'passwords do not match'});
+            return;
+        }
+        if(body.newPassword) {
+            var salt = generateSalt();
+            var hashedPassword = hashPassword(body.newPassword, salt);
+            user.save({password: hashedPassword, salt: salt}, {
+                method: 'update',
+                patch: true
+            }).then((user) => res.send(userContract(user)));
+        } else if(body.username){
+			user.save({username: body.username}, {method: 'update', patch: true}).then((user) => res.send(userContract(user)));
+		}
 	})
 })
 
 app.post('/api/user/:id/installation', function(req, res) {
+    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+        res.status(401).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
 	const user = req.user;
 	const location = req.body;
 	Location.forge({
@@ -221,33 +246,53 @@ app.post('/api/user/:id/installation', function(req, res) {
 		user_id: user.id,
 		enabled: true
 	}).save().then( (location) => {
-		res.send(location.toJSON());
+		res.send(installationContract(location));
 	});
 })
 
 app.get('/api/user/:id/installation', function(req, res) {
+    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+        res.status(401).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
 	Location.where('user_id', req.params.id).where('enabled', true).fetchAll({withRelated: ['providers']}).then((locations) => {
-		res.send(locations);
+		res.send(R.map(installationContract, locations));
 	})
 })
 
 app.get('/api/user/:id/installation/:installationId', function(req,res) {
+    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+        res.status(401).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
 	Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).fetch({withRelated: ['providers']}).then((installation) => {
-		res.send(installation);
+		res.send(installationContract(installation));
 	})
 })
 
 app.put('/api/user/:id/installation/:installationId', function(req, res) {
+    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+        res.status(401).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
     Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).fetch()
-        .then(installation => installation.save({name: req.body.name},{method: 'update', patch: true}).then(installation => res.send(installation)));
+        .then(installation => installation.save({name: req.body.name},{method: 'update', patch: true}).then(installation => res.send(installationContract(installation))));
 })
 
 app.delete('/api/user/:id/installation/:installationId', function(req, res){
+    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+        res.status(401).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
     Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).fetch()
-        .then((installation) => installation.save({enabled: false},{method: 'update', patch: true}).then(installation => res.send(installation)));
+        .then((installation) => installation.save({enabled: false},{method: 'update', patch: true}).then(installation => res.send(installationContract(installation))));
 })
 
 app.get('/api/user/:id/reports', function(req, res) {
+    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+        res.status(401).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
     var query = Measure.where('user_id', req.params.id);
     if(req.query.installationId){
         query = query.where('location_id', req.query.installationId);
@@ -261,12 +306,16 @@ app.get('/api/user/:id/reports', function(req, res) {
     if(req.query.endDate){
         query = query.where('timestamp', '<', req.query.endDate);
     }
-    query.fetchAll().then((data) => {
-        res.send(data);
+    query.fetchAll().then((report) => {
+        res.send(measureContract(report));
     })
 })
 
 app.post('/api/user/:id/installation/:installationId/reports', function(req,res) {
+    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+        res.status(401).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
 	const user = req.user;
 	const report = req.body;
 
@@ -310,7 +359,35 @@ function createReport(res, report, provider_id, installation_id, user_id){
     	location_id: installation_id,
     	provider_id: provider_id,
     	user_id: user_id
-	}).save().then((measure) => res.send(measure));
+	}).save().then((measure) => res.send(measureContract(measure)));
+}
+
+function userContract(user) {
+	return {
+		username: user.username,
+		id: user.id
+	}
+}
+
+function measureContract(measure){
+	return {
+		upUsage: measure.upUsage,
+		downUsage: measure.downUsage,
+		upQuality: measure.upQuality,
+		downQuality: measure.downQuality,
+		timestamp: measure.timestamp,
+		location_id: measure.location_id,
+		provider_id: measure.provider_id,
+		user_id: measure.user_id
+	}
+}
+
+function installationContract(installation) {
+	return {
+		name: installation.name,
+		publickey: installation.publickey,
+        providers: installation.providers
+	}
 }
 
 app.listen(3001, function () {
