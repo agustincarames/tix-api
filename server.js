@@ -422,7 +422,7 @@ function installationContract(installation) {
         id: installation.id,
         name: installation.get('name'),
         publickey: installation.get('publickey'),
-        providers: installation.get('providers').map(provider => providerContract(provider))
+        providers: installation.related('providers').map(provider => providerContract(provider))
     }
 }
 
