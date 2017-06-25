@@ -123,19 +123,6 @@ app.get('/api', function (req, res) {
   res.send('Hello World!')
 })
 
-app.get('/api/migrate', function (req, res) {
-	User.fetchAll().then((users) => {
-		users.forEach((user) => {
-			var salt = generateSalt();
-			var hashedPassword = hashPassword(user.get('password'), salt);
-			user.save({password: hashedPassword, salt: salt}, {
-				method: 'update',
-				patch: true
-			})
-        })
-	})
-})
-
 app.post('/api/register', function(req, res) {
     const user = req.body;
     if(!user.captcharesponse || !user.username || !user.password1 || !user.password2 || user.password1 !== user.password2 ) {
@@ -186,6 +173,15 @@ app.post('/api/login', function(req, res, next) {
 
 app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
         next();
+})
+
+app.all('/api/admin/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
+	const user = req.user;
+	if(user.role != admin){
+		res.status(401).json({reason: 'You are not authorized to perform that action'})
+	} else{
+        next();
+	}
 })
 
 app.get('/api/user/all', function(req, res){
@@ -301,6 +297,14 @@ app.delete('/api/user/:id/installation/:installationId', function(req, res){
         .then((installation) => installation.save({enabled: false},{method: 'update', patch: true}).then(installation => res.send(installationContract(installation))));
 })
 
+app.get('/api/user/:id/provider', function(req, res){
+	Provider.fetchAll().then((providers) => res.send(providers.map(provider => providerContract(provider))));
+})
+
+app.get('/api/user/:id/provider/:providerId', function(req, res){
+    Provider.where('id', req.params.providerId).fetchAll().then((providers) => res.send(providers.map(provider => providerContract(provider))));
+})
+
 app.get('/api/user/:id/reports', function(req, res) {
     if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
         res.status(401).json({reason: 'The user cannot perform that operation'});
@@ -357,6 +361,23 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
 
 })
 
+app.get('api/admin/reports', function(req,res){
+	var query = Measure;
+    if(req.query.startDate){
+        query = query.where('timestamp', '>' , req.query.startDate);
+    }
+    if(req.query.endDate){
+        query = query.where('timestamp', '<', req.query.endDate);
+    }
+    if(req.query.provider_id && req.query.provider_id > 0){
+        query = query.where('provider_id', req.query.providerId);
+    }
+    query.fetchAll().then((reports) => {
+        res.send(reports.map((report) => measureContract(report)));
+    })
+})
+
+
 function createReport(res, report, provider_id, installation_id, user_id){
     LocationProvider.where({location_id: installation_id, provider_id: provider_id}).fetch().then((relation) => {
     	if(!relation){
@@ -401,11 +422,17 @@ function installationContract(installation) {
         id: installation.id,
         name: installation.get('name'),
         publickey: installation.get('publickey'),
-        providers: installation.get('providers')
+        providers: installation.get('providers').map(provider => providerContract(provider))
     }
 }
 
+function providerContract(provider) {
+    return {
+        id: provider.id,
+        name: provider.get('name'),
+    }
+}
 
 app.listen(3001, function () {
-  console.log('Example app listening on port 3001!')
+  console.log('TiX api app listening on port 3001!')
 })
