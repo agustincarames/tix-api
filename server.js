@@ -17,17 +17,6 @@ var R = require('ramda');
 var uuidv4 = require('uuid/v4');
 var nodemailer = require('nodemailer');
 
-
-let transporter = nodemailer.createTransport({
-    host: 'smtp.example.com',
-    port: 465,
-    secure: true, // secure:true for port 465, secure:false for port 587
-    auth: {
-        user: 'username@example.com',
-        pass: 'userpass'
-    }
-});
-
 Bookshelf.plugin('registry');
 
 var Location = Bookshelf.Model.extend({
@@ -427,7 +416,7 @@ function userContract(user) {
 }
 
 function measureContract(measure){
-    return {s
+    return {
         upUsage: measure.get('upUsage'),
         downUsage: measure.get('downUsage'),
         upQuality: measure.get('upQuality'),
