@@ -8,6 +8,7 @@ exports.up = function(knex, Promise) {
 			table.string('password');
 			table.boolean('enabled');
 			table.string('role');
+			table.string('recoveryToken');
 			table.datetime('created_at');
             table.datetime('updated_at');
 		}).createTable('provider', function(table) {

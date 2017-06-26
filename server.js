@@ -14,6 +14,19 @@ var Bookshelf = require('bookshelf')(db);
 var PythonShell = require('python-shell');
 var Crypto = require('crypto');
 var R = require('ramda');
+var uuidv4 = require('uuid/v4');
+var nodemailer = require('nodemailer');
+
+
+let transporter = nodemailer.createTransport({
+    host: 'smtp.example.com',
+    port: 465,
+    secure: true, // secure:true for port 465, secure:false for port 587
+    auth: {
+        user: 'username@example.com',
+        pass: 'userpass'
+    }
+});
 
 Bookshelf.plugin('registry');
 
@@ -169,6 +182,14 @@ app.post('/api/login', function(req, res, next) {
 	    var token = jwt.encode({ userId: user.username}, tokenSecret);
 	    res.status(200).json({ token : token , username: user.username, id: user.id, role: user.role });
   	})(req, res, next);
+})
+
+app.post('/api/recover', function(req, res) {
+    if(!req.body.email) { res.status(400).json({ reason: 'Incomplete parameters'})};
+    User.where('username', req.body.email).fetch().then(user => {
+        var recoveryToken = uuidv4();
+        user.save({recoveryToken: recoveryToken},{method: 'update', patch: true}).then((answer) => res.status(200));
+    });
 })
 
 app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
@@ -400,12 +421,13 @@ function userContract(user) {
     return {
         username: user.get('username'),
         role: user.get('role'),
-        id: user.id
+        id: user.id,
+        enabled: user.get('enabled')
     }
 }
 
 function measureContract(measure){
-    return {
+    return {s
         upUsage: measure.get('upUsage'),
         downUsage: measure.get('downUsage'),
         upQuality: measure.get('upQuality'),

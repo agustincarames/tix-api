@@ -22,6 +22,7 @@
     "jwt-simple": "^0.5.1",
     "knex": "^0.12.6",
     "mysql": "^2.13.0",
+    "nodemailer": "^4.0.1",
     "passport": "^0.3.2",
     "passport-http": "^0.3.0",
     "passport-jwt": "^2.2.1",
@@ -32,6 +33,7 @@
     "ramda": "^0.24.1",
     "sequelize": "^3.29.0",
     "superagent": "^3.5.2",
+    "uuid": "^3.1.0",
     "whatwg-fetch": "^2.0.2"
   }
 }
