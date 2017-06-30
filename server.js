@@ -384,21 +384,30 @@ app.get('/api/admin/reports', function(req,res){
         query = query.where('provider_id', req.query.providerId);
     }
     query.fetchAll().then((reports) => {
-
-        var contype = req.headers['content-type'];
-        if(contype && contype.includes('application/json')){
-            res.send(reports.map((report) => measureContract(report)));
-        } else if( contype && contype.includes('text/csv')){
-            json2csv({ data: reports, fields: ['timestamp', 'upUsage', 'downUsage', 'qualityUp', 'qualityDown'] }, function(err, csv) {
-                res.setHeader('Content-disposition', 'attachment; filename=data.csv');
-                res.set('Content-Type', 'text/csv');
-                res.status(200).send(csv);
-            });
-        } else {
-            res.status(415).json({reason: 'invalid content type'});
-        }
+        res.send(reports.map((report) => measureContract(report)));
     })
 })
+
+app.get('/api/admin/reports.csv', function(req,res){
+    var query = Measure;
+    if(req.query.startDate){
+        query = query.where('timestamp', '>' , req.query.startDate);
+    }
+    if(req.query.endDate){
+        query = query.where('timestamp', '<', req.query.endDate);
+    }
+    if(req.query.provider_id && req.query.provider_id > 0){
+        query = query.where('provider_id', req.query.providerId);
+    }
+    query.fetchAll().then((reports) => {
+        json2csv({ data: reports.toJSON(), fields: ['timestamp', 'upUsage', 'downUsage', 'upQuality', 'downQuality'] }, function(err, csv) {
+            res.setHeader('Content-disposition', 'attachment; filename=data.csv');
+            res.set('Content-Type', 'text/csv');
+            res.status(200).send(csv);
+        });
+    })
+})
+
 
 
 function createReport(res, report, provider_id, installation_id, user_id){
