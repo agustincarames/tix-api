@@ -20,6 +20,23 @@ var nodemailer = require('nodemailer');
 
 Bookshelf.plugin('registry');
 
+// create reusable transporter object using the default SMTP transport
+let transporter = nodemailer.createTransport({
+    host: 'localhost',
+    port: 465,
+    secure: true, // secure:true for port 465, secure:false for port 587
+});
+
+function createEmail(to, code) {
+    return {
+        from: '"TiX Service" <info@tix.innova-red.net>',
+        to: to,
+        subject: 'Recuperar Clave',
+        text: 'Para recuperar su contraseña siga el siguiente link: http://tix.innova-red.net/recover?code=' + code, // plain text body
+        html: '"<html><body>Para recuperar su contrase&ntilde;a siga el siguiente link <a href=\"http://tix.innova-red.net/bin/account/recoverpassword?cod=" + code +"</body></html>"'
+    };
+}
+
 var Location = Bookshelf.Model.extend({
 	tableName: 'location',
     hasTimestamps: true,
@@ -179,6 +196,12 @@ app.post('/api/recover', function(req, res) {
     User.where('username', req.body.email).fetch().then(user => {
         var recoveryToken = uuidv4();
         user.save({recoveryToken: recoveryToken},{method: 'update', patch: true}).then((answer) => res.status(200));
+        transporter.sendMail(createEmail(user.username, recoveryToken), (error, info) => {
+            if (error) {
+                return console.log(error);
+            }
+            console.log('Message %s sent: %s', info.messageId, info.response);
+        });
     });
 })
 
