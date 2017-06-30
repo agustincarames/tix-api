@@ -15,6 +15,7 @@ var PythonShell = require('python-shell');
 var Crypto = require('crypto');
 var R = require('ramda');
 var uuidv4 = require('uuid/v4');
+var json2csv = require('json2csv');
 var nodemailer = require('nodemailer');
 
 Bookshelf.plugin('registry');
@@ -65,7 +66,7 @@ var LocationProvider = Bookshelf.Model.extend({
     hasTimestamps: false
 });
 
-app.use(bodyParser());
+app.use(bodyParser.json());
 app.use(cors());
 
 var tokenSecret = 'verySecret';
@@ -187,7 +188,7 @@ app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }
 
 app.all('/api/admin/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
 	const user = req.user;
-	if(user.role != admin){
+	if(user.role != 'admin'){
 		res.status(401).json({reason: 'You are not authorized to perform that action'})
 	} else{
         next();
@@ -383,7 +384,19 @@ app.get('api/admin/reports', function(req,res){
         query = query.where('provider_id', req.query.providerId);
     }
     query.fetchAll().then((reports) => {
-        res.send(reports.map((report) => measureContract(report)));
+
+        var contype = req.headers['content-type'];
+        if(contype && contype.includes('application/json')){
+            res.send(reports.map((report) => measureContract(report)));
+        } else if( contype && contype.includes('text/csv')){
+            json2csv({ data: reports, fields: ['timestamp', 'upUsage', 'downUsage', 'qualityUp', 'qualityDown'] }, function(err, csv) {
+                res.setHeader('Content-disposition', 'attachment; filename=data.csv');
+                res.set('Content-Type', 'text/csv');
+                res.status(200).send(csv);
+            });
+        } else {
+            res.status(415).json({reason: 'invalid content type'});
+        }
     })
 })
 
