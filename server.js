@@ -188,7 +188,7 @@ app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }
 
 app.all('/api/admin/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
 	const user = req.user;
-	if(user.role != 'admin'){
+	if(user.role !== 'admin'){
 		res.status(401).json({reason: 'You are not authorized to perform that action'})
 	} else{
         next();
@@ -372,7 +372,7 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
 
 })
 
-app.get('api/admin/reports', function(req,res){
+app.get('/api/admin/reports', function(req,res){
 	var query = Measure;
     if(req.query.startDate){
         query = query.where('timestamp', '>' , req.query.startDate);
