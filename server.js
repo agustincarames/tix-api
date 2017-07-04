@@ -33,7 +33,7 @@ function createEmail(to, code) {
         to: to,
         subject: 'Recuperar Clave',
         text: 'Para recuperar su contraseña siga el siguiente link: http://tix.innova-red.net/recover?code=' + code, // plain text body
-        html: '"<html><body>Para recuperar su contrase&ntilde;a siga el siguiente link <a href=\"http://tix.innova-red.net/bin/account/recoverpassword?cod=" + code +"</body></html>"'
+        html: '<html><body>Para recuperar su contrase&ntilde;a siga el siguiente link <a href=\"http://tix.innova-red.net/recover?code=' + code + '\"</body></html>'
     };
 }
 
@@ -195,13 +195,25 @@ app.post('/api/recover', function(req, res) {
     if(!req.body.email) { res.status(400).json({ reason: 'Incomplete parameters'})};
     User.where('username', req.body.email).fetch().then(user => {
         var recoveryToken = uuidv4();
-        user.save({recoveryToken: recoveryToken},{method: 'update', patch: true}).then((answer) => res.status(200));
+        user.save({recoveryToken: recoveryToken},{method: 'update', patch: true}).then((answer) => res.status(200).json({reason: 'Recovery code sent successfully'}));
         transporter.sendMail(createEmail(user.username, recoveryToken), (error, info) => {
             if (error) {
                 return console.log(error);
             }
             console.log('Message %s sent: %s', info.messageId, info.response);
         });
+    });
+})
+
+app.post('/api/recover/code', function(req, res) {
+    if(!req.body.email || !req.body.code || !req.body.password) { res.status(400).json({ reason: 'Incomplete parameters'})};
+    User.where('username', req.body.email).fetch().then(user => {
+        if(user.get('recoveryToken') === req.body.code){
+            var salt = generateSalt();
+            var hashedPassword = hashPassword(user.password1, salt);
+            user.save({password: hashedPassword, salt: salt},{method: 'update', patch: true}).then((answer) => res.status(200).json({reason: 'Password updates successfully'}));
+        }
+
     });
 })
 
