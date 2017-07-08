@@ -32,8 +32,13 @@ function createEmail(to, code) {
         from: '"TiX Service" <info@tix.innova-red.net>',
         to: to,
         subject: 'Recuperar Clave',
-        text: 'Para recuperar su contraseña siga el siguiente link: http://tix.innova-red.net/recover?code=' + code, // plain text body
-        html: '<html><body>Para recuperar su contrase&ntilde;a siga el siguiente link <a href=\"http://tix.innova-red.net/recover?code=' + code + '\"</body></html>'
+        text: 'Para recuperar su contraseña siga el siguiente link: http://tix.innova-red.net/recover?code=' + code + '&email=' +  to, // plain text body
+        html: `<html>
+                <body>
+                    Para recuperar su contraseña siga el siguiente link <a href=\"http://tix.innova-red.net/recover?code=${code}&email=${to}\"
+                    O ingrese a http://tix.innova-red.net/recover e ingrese el codigo ${code}
+                </body>
+               </html>`
     };
 }
 
@@ -210,8 +215,10 @@ app.post('/api/recover/code', function(req, res) {
     User.where('username', req.body.email).fetch().then(user => {
         if(user.get('recoveryToken') === req.body.code){
             var salt = generateSalt();
-            var hashedPassword = hashPassword(user.password1, salt);
-            user.save({password: hashedPassword, salt: salt},{method: 'update', patch: true}).then((answer) => res.status(200).json({reason: 'Password updates successfully'}));
+            var hashedPassword = hashPassword(req.body.password, salt);
+            user.save({password: hashedPassword, salt: salt, recoveryToken: null},{method: 'update', patch: true}).then((answer) => res.status(200).json({reason: 'Password updated successfully'}));
+        } else{
+            res.send(403).json({reason: 'Incorrect code'});
         }
 
     });
