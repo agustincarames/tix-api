@@ -230,7 +230,7 @@ app.get('/api/user/:id/reports', function(req, res) {
         installationId,
     } = req.query;
     const userId = req.params.id;
-    reportService.getReport(userId, installationId, providerId, startDate, endDate).then((reports) => {
+    reportService.getReports(userId, installationId, providerId, startDate, endDate).then((reports) => {
         res.send(reports.map((report) => contracts.measureContract(report)));
     });;
 })

@@ -3,6 +3,7 @@ var contracts = require('../contracts');
 var nodemailer = require('nodemailer');
 var uuidv4 = require('uuid/v4');
 var Crypto = require('crypto');
+var R = require('ramda');
 
 var updateUser = (req, res, body) => {
     return User.where('id', req.params.id).fetch().then((user) => {
