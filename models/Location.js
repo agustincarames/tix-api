@@ -1,5 +1,7 @@
 var db  = require('./db');
 var Bookshelf = require('bookshelf')(db);
+var Provider = require('./Provider');
+var Measure = require('./Measure');
 Bookshelf.plugin('registry');
 
 module.exports = Bookshelf.Model.extend({
