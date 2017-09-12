@@ -4,7 +4,7 @@ var Location = require('./Location');
 var Provider = require('./Provider');
 Bookshelf.plugin('registry');
 
-var Measure = Bookshelf.Model.extend({
+module.exports = Bookshelf.Model.extend({
     tableName: 'measure',
     hasTimestamps: true,
     provider: function() {
@@ -14,7 +14,3 @@ var Measure = Bookshelf.Model.extend({
         return this.belongsTo(Location, 'location_id');
     }
 });
-
-module.exports = {
-    Measure: Measure
-};

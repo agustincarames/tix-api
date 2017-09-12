@@ -2,7 +2,7 @@ var db  = require('./db');
 var Bookshelf = require('bookshelf')(db);
 Bookshelf.plugin('registry');
 
-var Location = Bookshelf.Model.extend({
+module.exports = Bookshelf.Model.extend({
     tableName: 'location',
     hasTimestamps: true,
     measures: function() {
@@ -12,7 +12,3 @@ var Location = Bookshelf.Model.extend({
         return this.belongsToMany(Provider);
     }
 });
-
-module.exports = {
-    Location: Location
-};
