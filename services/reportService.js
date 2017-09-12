@@ -43,10 +43,10 @@ var getReports = (userId, installationId, providerId, startDate, endDate) => {
         query = query.where('provider_id', providerId);
     }
     if(startDate){
-        query = query.where('timestamp', '>' , startDate);
+        query = query.where('timestamp', '>=' , startDate);
     }
     if(endDate){
-        query = query.where('timestamp', '<', endDate);
+        query = query.where('timestamp', '<=', endDate);
     }
     return query.fetchAll();
 }

@@ -177,7 +177,13 @@ app.get('/api/user/:id/installation/:installationId', function(req,res) {
     }
     const userId = req.params.id;
     const installationId = req.params.installationId;
-	locationService.getInstallation(installationId, userId).then((installation) => { res.send(contracts.installationContract(installation)); });
+	locationService.getInstallation(installationId, userId).then((installation) => {
+	    if(installation){
+            res.send(installationContract(installation));
+        } else {
+	        res.status(404).send("Not Found");
+        }
+	});
 })
 
 app.put('/api/user/:id/installation/:installationId', function(req, res) {
