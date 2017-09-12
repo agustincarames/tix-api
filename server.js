@@ -9,104 +9,18 @@ var jwt = require('jwt-simple');
 var JwtStrategy = require('passport-jwt').Strategy;
 var ExtractJwt = require('passport-jwt').ExtractJwt;
 var sa = require('superagent');
-var db  = require('./db');
-var Bookshelf = require('bookshelf')(db);
-var PythonShell = require('python-shell');
-var Crypto = require('crypto');
-var R = require('ramda');
-var uuidv4 = require('uuid/v4');
+var reportService = require('./services/reportService');
+var providerService = require('./services/providerService');
+var locationService = require('./services/locationService');
+var userService = require('./services/userService');
+var User = require('./models/User');
 var json2csv = require('json2csv');
-var nodemailer = require('nodemailer');
-
-Bookshelf.plugin('registry');
-
-// create reusable transporter object using the default SMTP transport
-let transporter = nodemailer.createTransport({
-    host: 'localhost',
-    port: 465,
-    secure: true, // secure:true for port 465, secure:false for port 587
-});
-
-function createEmail(to, code) {
-    return {
-        from: '"TiX Service" <info@tix.innova-red.net>',
-        to: to,
-        subject: 'Recuperar Clave',
-        text: 'Para recuperar su contraseña siga el siguiente link: http://tix.innova-red.net/recover?code=' + code + '&email=' +  to, // plain text body
-        html: `<html>
-                <body>
-                    Para recuperar su contraseña siga el siguiente link <a href=\"http://tix.innova-red.net/recover?code=${code}&email=${to}\"
-                    O ingrese a http://tix.innova-red.net/recover e ingrese el codigo ${code}
-                </body>
-               </html>`
-    };
-}
-
-var Location = Bookshelf.Model.extend({
-	tableName: 'location',
-    hasTimestamps: true,
-	measures: function() {
-        return this.hasMany(Measure);
-    },
-	providers: function() {
-		return this.belongsToMany(Provider);
-	}
-});
-
-var User = Bookshelf.Model.extend({
-	tableName: 'user',
-	hasTimestamps: true,
-    locations: function(){
-		return this.hasMany(Location)
-	},
-});
-
-var Provider = Bookshelf.Model.extend({
-	tableName: 'provider',
-    hasTimestamps: true,
-	measures: function() {
-		return this.hasMany(Measure);
-	},
-	locations: function() {
-		return this.belongsToMany(Location);
-	}
-});
-
-var Measure = Bookshelf.Model.extend({
-	tableName: 'measure',
-    hasTimestamps: true,
-	provider: function() {
-		return this.belongsTo(Provider, 'provider_id');
-	},
-	location: function() {
-		return this.belongsTo(Location, 'location_id');
-	}
-});
-
-var LocationProvider = Bookshelf.Model.extend({
-	tableName: 'location_provider',
-    hasTimestamps: false
-});
+var contracts = require('./contracts');
 
 app.use(bodyParser.json());
 app.use(cors());
 
 var tokenSecret = 'verySecret';
-
-function generateSalt() {
-    var salt = Crypto.randomBytes(126);
-    return salt.toString('base64');
-};
-
-function hashPassword(password, salt){
-	console.log(password);
-	console.log(salt);
-    var hmac =  Crypto.createHmac('sha512', salt);
-    hmac.setEncoding("base64");
-    hmac.write(password);
-    hmac.end();
-    return hmac.read();
-};
 
 passport.use(new LocalStrategy(
   	function(username, password, done) {
@@ -114,7 +28,7 @@ passport.use(new LocalStrategy(
       		if (!user) {
       			return done(null, false, { reason: 'Incorrect username.' });
       		}
-      		if (user.get('password') !== hashPassword(password, user.get('salt'))) {
+      		if (user.get('password') !== userService.hashPassword(password, user.get('salt'))) {
         		return done(null, false, { reason: 'Incorrect password.' });
       		}
       		return done(null, user.toJSON());
@@ -138,7 +52,7 @@ passport.use(new BasicStrategy(
   function(userid, password, done) {
     User.where('username', userid).fetch().then((user) => {
       if (!user) { return done(null, false); }
-      if (hashPassword(password, user.get('salt')) !== user.get('password')) { return done(null, false); }
+      if (userService.hashPassword(password, user.get('salt')) !== user.get('password')) { return done(null, false); }
       return done(null, user.toJSON());
     });
   }
@@ -161,29 +75,10 @@ app.post('/api/register', function(req, res) {
 		})
 		.end(function(err, response) {
 			if(err){ console.log(err); res.status(403).json({reason: 'Error while processing Captcha'}); }
-			createUser(user, res)
+            userService.createUser(res, user)
 
 		})
 })
-
-function createUser(user, res) {
-    var salt = generateSalt();
-    var hashedPassword = hashPassword(user.password1, salt);
-    User.forge({
-        username: user.username,
-        password: hashedPassword,
-        role: 'user',
-        salt: salt,
-        enabled: true
-    }).save().then((user) => {
-        res.send({
-            username: user.get('username'),
-            id: user.get('id'),
-        });
-    }, (error) => {
-        res.status(403).json({reason: 'Error while creating user'});
-    })
-}
 
 app.post('/api/login', function(req, res, next) {
    	passport.authenticate('local', function(err, user, info) {
@@ -198,30 +93,12 @@ app.post('/api/login', function(req, res, next) {
 
 app.post('/api/recover', function(req, res) {
     if(!req.body.email) { res.status(400).json({ reason: 'Incomplete parameters'})};
-    User.where('username', req.body.email).fetch().then(user => {
-        var recoveryToken = uuidv4();
-        user.save({recoveryToken: recoveryToken},{method: 'update', patch: true}).then((answer) => res.status(200).json({reason: 'Recovery code sent successfully'}));
-        transporter.sendMail(createEmail(user.username, recoveryToken), (error, info) => {
-            if (error) {
-                return console.log(error);
-            }
-            console.log('Message %s sent: %s', info.messageId, info.response);
-        });
-    });
+    userService.sendUserRecoveryEmail(req, res);
 })
 
 app.post('/api/recover/code', function(req, res) {
     if(!req.body.email || !req.body.code || !req.body.password) { res.status(400).json({ reason: 'Incomplete parameters'})};
-    User.where('username', req.body.email).fetch().then(user => {
-        if(user.get('recoveryToken') === req.body.code){
-            var salt = generateSalt();
-            var hashedPassword = hashPassword(req.body.password, salt);
-            user.save({password: hashedPassword, salt: salt, recoveryToken: null},{method: 'update', patch: true}).then((answer) => res.status(200).json({reason: 'Password updated successfully'}));
-        } else{
-            res.send(403).json({reason: 'Incorrect code'});
-        }
-
-    });
+    userService.getUserByUsernameAndPassword(req, res);
 })
 
 app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
@@ -240,9 +117,7 @@ app.all('/api/admin/*', passport.authenticate(['jwt','basic'], { session: false 
 app.get('/api/user/all', function(req, res){
 	const user = req.user;
 	if(user.role === 'admin') {
-        User.fetchAll().then((users) => {
-            res.send(R.map(userContract, users));
-    	});
+        userService.getAllUsers(req, res);
     }else{
 		res.status(401).json({reason: "You are not authorized to perform that action"});
 	}
@@ -254,9 +129,7 @@ app.get('/api/user/current', function(req, res) {
 })
 
 app.get('/api/user/current/installation',function(req,res) {
-    Location.where('user_id', req.user.id).fetchAll().then((locations) => {
-        res.send(R.map(installationContract, locations));
-    })
+    locationService.getInstallationByUserId(req, res);
 })
 
 app.get('/api/user/:id', function(req, res) {
@@ -264,11 +137,7 @@ app.get('/api/user/:id', function(req, res) {
         res.status(401).json({reason: 'The user cannot perform that operation'});
         return;
     }
-	User.where('id', req.params.id).fetch().then((user) => {
-		res.send(userContract(user));
-	});
-
-
+	userService.getUserById(req, res);
 })
 
 app.put('/api/user/:id', function(req, res) {
@@ -277,22 +146,7 @@ app.put('/api/user/:id', function(req, res) {
         return;
     }
 	var body = req.body;
-	User.where('id', req.params.id).fetch().then((user) => {
-        if (hashPassword(body.oldPassword, user.get('salt')) !== user.get('password')) {
-            res.code(403).json({reason: 'passwords do not match'});
-            return;
-        }
-        if(body.newPassword) {
-            var salt = generateSalt();
-            var hashedPassword = hashPassword(body.newPassword, salt);
-            user.save({password: hashedPassword, salt: salt}, {
-                method: 'update',
-                patch: true
-            }).then((user) => res.send(userContract(user)));
-        } else if(body.username){
-			user.save({username: body.username}, {method: 'update', patch: true}).then((user) => res.send(userContract(user)));
-		}
-	})
+    userService.updateUser(req, res, body);
 })
 
 app.post('/api/user/:id/installation', function(req, res) {
@@ -302,14 +156,9 @@ app.post('/api/user/:id/installation', function(req, res) {
     }
 	const user = req.user;
 	const location = req.body;
-	Location.forge({
-		name: location.name, 
-		publickey: location.publickey, 
-		user_id: user.id,
-		enabled: true
-	}).save().then( (location) => {
-		res.send(installationContract(location));
-	});
+    locationService.createInstallation(location, user).then( (location) => {
+        res.send(contracts.installationContract(location));
+    });;
 })
 
 app.get('/api/user/:id/installation', function(req, res) {
@@ -317,9 +166,8 @@ app.get('/api/user/:id/installation', function(req, res) {
         res.status(401).json({reason: 'The user cannot perform that operation'});
         return;
     }
-	Location.where('user_id', req.params.id).where('enabled', true).fetchAll({withRelated: ['providers']}).then((locations) => {
-		res.send(locations.map((location) => installationContract(location)));
-	})
+    const userId = req.params.id;
+	locationService.getInstallations(userId).then((locations) => { res.send(locations.map((location) => contracts.installationContract(location))); });;
 })
 
 app.get('/api/user/:id/installation/:installationId', function(req,res) {
@@ -327,9 +175,9 @@ app.get('/api/user/:id/installation/:installationId', function(req,res) {
         res.status(401).json({reason: 'The user cannot perform that operation'});
         return;
     }
-	Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).fetch({withRelated: ['providers']}).then((installation) => {
-		res.send(installationContract(installation));
-	})
+    const userId = req.params.id;
+    const installationId = req.params.installationId;
+	locationService.getInstallation(installationId, userId).then((installation) => { res.send(contracts.installationContract(installation)); });
 })
 
 app.put('/api/user/:id/installation/:installationId', function(req, res) {
@@ -337,8 +185,10 @@ app.put('/api/user/:id/installation/:installationId', function(req, res) {
         res.status(401).json({reason: 'The user cannot perform that operation'});
         return;
     }
-    Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).fetch()
-        .then(installation => installation.save({name: req.body.name},{method: 'update', patch: true}).then(installation => res.send(installationContract(installation))));
+    const name = req.body.name;
+    const userId = req.params.id;
+    const installationId = req.params.installationId;
+    locationService.updateInstallation(installationId, userId, name).then(installation => res.send(contracts.installationContract(installation)));
 })
 
 app.delete('/api/user/:id/installation/:installationId', function(req, res){
@@ -346,16 +196,20 @@ app.delete('/api/user/:id/installation/:installationId', function(req, res){
         res.status(401).json({reason: 'The user cannot perform that operation'});
         return;
     }
-    Location.where('id', req.params.installationId).where('user_id', req.params.id).where('enabled', true).fetch()
-        .then((installation) => installation.save({enabled: false},{method: 'update', patch: true}).then(installation => res.send(installationContract(installation))));
+    const userId = req.params.id;
+    const installationId = req.params.installationId;
+    locationService.deleteInstallation(installationId, userId).then(installation => res.send(contracts.installationContract(installation)));;
 })
 
 app.get('/api/user/:id/provider', function(req, res){
-	Provider.fetchAll().then((providers) => res.send(providers.map(provider => providerContract(provider))));
+	providerService.getProviders().then((providers) => res.send(providers.map(provider => contracts.providerContract(provider))));;
 })
 
 app.get('/api/user/:id/provider/:providerId', function(req, res){
-    Provider.where('id', req.params.providerId).fetchAll().then((providers) => res.send(providers.map(provider => providerContract(provider))));
+    const {
+        providerId
+    } = req.params;
+    providerService.getProvider(providerId).then((providers) => res.send(providers.map(provider => contracts.providerContract(provider))));;
 })
 
 app.get('/api/user/:id/reports', function(req, res) {
@@ -363,22 +217,16 @@ app.get('/api/user/:id/reports', function(req, res) {
         res.status(401).json({reason: 'The user cannot perform that operation'});
         return;
     }
-    var query = Measure.where('user_id', req.params.id);
-    if(req.query.installationId){
-        query = query.where('location_id', req.query.installationId);
-    }
-    if(req.query.provider_id && req.query.provider_id > 0){
-        query = query.where('provider_id', req.query.providerId);
-    }
-    if(req.query.startDate){
-        query = query.where('timestamp', '>' , req.query.startDate);
-    }
-    if(req.query.endDate){
-        query = query.where('timestamp', '<', req.query.endDate);
-    }
-    query.fetchAll().then((reports) => {
-        res.send(reports.map((report) => measureContract(report)));
-    })
+    const {
+        startDate,
+        endDate,
+        providerId,
+        installationId,
+    } = req.query;
+    const userId = req.params.id;
+    reportService.getReport(userId, installationId, providerId, startDate, endDate).then((reports) => {
+        res.send(reports.map((report) => contracts.measureContract(report)));
+    });;
 })
 
 app.post('/api/user/:id/installation/:installationId/reports', function(req,res) {
@@ -386,128 +234,40 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
         res.status(401).json({reason: 'The user cannot perform that operation'});
         return;
     }
-	const user = req.user;
+
 	const report = req.body;
-
-    var options = {
-        scriptPath: 'ipToas',
-        args: [report.ip]
-    };
-
-    PythonShell.run('info.py', options, function (err, result) {
-        if(err) res.status(500).send('Could not calculate ipToAs');
-
-        const as = result[0].split(',')[0];
-        console.log("AS found: " + as);
-        Provider.where('name', as).fetch().then((provider) => {
-			if(!provider){
-				Provider.forge({
-					name: as
-				}).save().then((provider) => {
-					createReport(res, report, provider.id, req.params.installationId, req.params.id);
-				})
-			} else {
-                createReport(res, report, provider.id, req.params.installationId, req.params.id);
-			}
-		})
-    });
+    reportService.postReport(req, res, report);
 
 })
 
 app.get('/api/admin/reports', function(req,res){
-	var query = Measure;
-    if(req.query.startDate){
-        query = query.where('timestamp', '>' , req.query.startDate);
-    }
-    if(req.query.endDate){
-        query = query.where('timestamp', '<', req.query.endDate);
-    }
-    if(req.query.provider_id && req.query.provider_id > 0){
-        query = query.where('provider_id', req.query.providerId);
-    }
-    query.fetchAll().then((reports) => {
-        res.send(reports.map((report) => measureContract(report)));
-    })
-})
+    const {
+        startDate,
+        endDate,
+        providerId,
+    } = req.query;
+
+    reportService.getAdminReports(startDate, endDate, providerId).then((reports) => {
+        res.send(reports.map((report) => contracts.measureContract(report)));
+    });
+});
 
 app.get('/api/admin/reports.csv', function(req,res){
-    var query = Measure;
-    if(req.query.startDate){
-        query = query.where('timestamp', '>' , req.query.startDate);
-    }
-    if(req.query.endDate){
-        query = query.where('timestamp', '<', req.query.endDate);
-    }
-    if(req.query.provider_id && req.query.provider_id > 0){
-        query = query.where('provider_id', req.query.providerId);
-    }
-    query.fetchAll().then((reports) => {
+    const {
+        startDate,
+        endDate,
+        providerId,
+    } = req.query;
+    reportService.getAdminReports(startDate, endDate, providerId).then((reports) => {
         json2csv({ data: reports.toJSON(), fields: ['timestamp', 'upUsage', 'downUsage', 'upQuality', 'downQuality'] }, function(err, csv) {
             res.setHeader('Content-disposition', 'attachment; filename=data.csv');
             res.set('Content-Type', 'text/csv');
             res.status(200).send(csv);
         });
-    })
-})
+    });
+});
 
-
-
-function createReport(res, report, provider_id, installation_id, user_id){
-    LocationProvider.where({location_id: installation_id, provider_id: provider_id}).fetch().then((relation) => {
-    	if(!relation){
-    		LocationProvider.forge({location_id: installation_id, provider_id: provider_id}).save();
-		}
-	});
-	Measure.forge({
-        upUsage: report.upUsage,
-		downUsage: report.downUsage,
-    	upQuality: report.upQuality,
-    	downQuality: report.downQuality,
-    	timestamp: new Date(report.timestamp * 1000),
-    	location_id: installation_id,
-    	provider_id: provider_id,
-    	user_id: user_id
-	}).save().then((measure) => res.send(measureContract(measure)));
-}
-
-function userContract(user) {
-    return {
-        username: user.get('username'),
-        role: user.get('role'),
-        id: user.id,
-        enabled: user.get('enabled')
-    }
-}
-
-function measureContract(measure){
-    return {
-        upUsage: measure.get('upUsage'),
-        downUsage: measure.get('downUsage'),
-        upQuality: measure.get('upQuality'),
-        downQuality: measure.get('downQuality'),
-        timestamp: measure.get('timestamp'),
-        location_id: measure.get('location_id'),
-        provider_id: measure.get('provider_id'),
-        user_id: measure.get('user_id')
-    }
-}
-
-function installationContract(installation) {
-    return {
-        id: installation.id,
-        name: installation.get('name'),
-        publickey: installation.get('publickey'),
-        providers: installation.related('providers').map(provider => providerContract(provider))
-    }
-}
-
-function providerContract(provider) {
-    return {
-        id: provider.id,
-        name: provider.get('name'),
-    }
-}
 
 app.listen(3001, function () {
   console.log('TiX api app listening on port 3001!')
-})
+});
