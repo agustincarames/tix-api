@@ -4,7 +4,7 @@ var LocationProvider = require('../models/LocationProvider');
 var PythonShell = require('python-shell');
 
 var getAdminReports = (startDate, endDate, providerId) => {
-    return this.getReports(null, null, providerId, startDate, endDate);
+    return getReports(null, null, providerId, startDate, endDate);
 }
 
 var postReport = (report, as, installationId, userId) => {

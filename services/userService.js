@@ -34,19 +34,19 @@ var createUser = (username, password) => {
 }
 
 var getUserById = (userId) => {
-    User.where('id', userId).fetch();
+    return User.where('id', userId).fetch();
 };
 
 var getAllUsers = () => {
-    User.fetchAll();
+    return User.fetchAll();
 }
 
 var updatePassword = (email, recoveryCode, newPassword) => {
-    User.where('username', email).fetch().then(user => {
+    return User.where('username', email).fetch().then(user => {
         if(user.get('recoveryToken') === recoveryCode){
             var salt = generateSalt();
             var hashedPassword = hashPassword(newPassword, salt);
-            user.save({password: hashedPassword, salt: salt, recoveryToken: null},{method: 'update', patch: true});
+            return user.save({password: hashedPassword, salt: salt, recoveryToken: null},{method: 'update', patch: true});
         }
 
     });
