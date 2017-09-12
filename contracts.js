@@ -1,4 +1,4 @@
-module.exports.userContract = (user) => {
+var userContract = (user) => {
     return {
         username: user.get('username'),
         role: user.get('role'),
@@ -7,7 +7,7 @@ module.exports.userContract = (user) => {
     }
 }
 
-module.exports.measureContract = (measure) => {
+var measureContract = (measure) => {
     return {
         upUsage: measure.get('upUsage'),
         downUsage: measure.get('downUsage'),
@@ -20,7 +20,7 @@ module.exports.measureContract = (measure) => {
     }
 }
 
-module.exports.installationContract = (installation) => {
+var installationContract = (installation) => {
     return {
         id: installation.id,
         name: installation.get('name'),
@@ -29,9 +29,16 @@ module.exports.installationContract = (installation) => {
     }
 }
 
-module.exports.providerContract = (provider) => {
+var providerContract = (provider) => {
     return {
         id: provider.id,
         name: provider.get('name'),
     }
 }
+
+module.exports = {
+    userContract: userContract,
+    measureContract: measureContract,
+    installationContract: installationContract,
+    providerContract: providerContract,
+};
