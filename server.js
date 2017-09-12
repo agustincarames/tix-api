@@ -137,7 +137,13 @@ app.get('/api/user/all', function(req, res){
 
 
 app.get('/api/user/current', function(req, res) {
-	res.send(contracts.userContract(req.user));
+    var user = req.user;
+	res.send({
+        username: user.username,
+        role: user.role,
+        id: user.id,
+        enabled: user.enabled
+    });
 })
 
 app.get('/api/user/current/installation',function(req,res) {
