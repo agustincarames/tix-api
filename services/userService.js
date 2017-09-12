@@ -45,7 +45,7 @@ var createUser = (res, user) => {
 
 var getUserById = (req, res) => {
     User.where('id', req.params.id).fetch().then((user) => {
-        res.send(userContract(user));
+        res.send(contracts.userContract(user));
     });
 };
 
