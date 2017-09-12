@@ -16,6 +16,7 @@ var userService = require('./services/userService');
 var User = require('./models/User');
 var json2csv = require('json2csv');
 var contracts = require('./contracts');
+var R = require('ramda');
 
 app.use(bodyParser.json());
 app.use(cors());
@@ -75,7 +76,11 @@ app.post('/api/register', function(req, res) {
 		})
 		.end(function(err, response) {
 			if(err){ console.log(err); res.status(403).json({reason: 'Error while processing Captcha'}); }
-            userService.createUser(res, user)
+            userService.createUser(user.username, user.password1).then((user) => {
+                res.send(contracts.userContract(user));
+            }, (error) => {
+                res.status(403).json({reason: 'Error while creating user'});
+            })
 
 		})
 })
@@ -92,13 +97,18 @@ app.post('/api/login', function(req, res, next) {
 })
 
 app.post('/api/recover', function(req, res) {
-    if(!req.body.email) { res.status(400).json({ reason: 'Incomplete parameters'})};
-    userService.sendUserRecoveryEmail(req, res);
+    var email = req.body.email
+    if(!email) { res.status(400).json({ reason: 'Incomplete parameters'})};
+
+    userService.sendUserRecoveryEmail(email).then((answer) => res.status(200).json({reason: 'Recovery code sent successfully'}));
 })
 
 app.post('/api/recover/code', function(req, res) {
-    if(!req.body.email || !req.body.code || !req.body.password) { res.status(400).json({ reason: 'Incomplete parameters'})};
-    userService.getUserByUsernameAndPassword(req, res);
+    var email = req.body.email;
+    var code = req.body.code;
+    var password = req.body.password
+    if(!email || !code || !password) { res.status(400).json({ reason: 'Incomplete parameters'})};
+    userService.updatePassword(email, code, password).then((answer) => res.status(200).json({reason: 'Password updated successfully'}));
 })
 
 app.all('/api/user/*', passport.authenticate(['jwt','basic'], { session: false }), function(req, res, next) {
@@ -117,7 +127,9 @@ app.all('/api/admin/*', passport.authenticate(['jwt','basic'], { session: false 
 app.get('/api/user/all', function(req, res){
 	const user = req.user;
 	if(user.role === 'admin') {
-        userService.getAllUsers(req, res);
+        userService.getAllUsers().then((users) => {
+            res.send(R.map(contracts.userContract, users));
+        });;
     }else{
 		res.status(401).json({reason: "You are not authorized to perform that action"});
 	}
@@ -125,11 +137,13 @@ app.get('/api/user/all', function(req, res){
 
 
 app.get('/api/user/current', function(req, res) {
-	res.send(req.user);
+	res.send(contracts.userContract(req.user));
 })
 
 app.get('/api/user/current/installation',function(req,res) {
-    locationService.getInstallationByUserId(req, res);
+    locationService.getInstallationByUserId(req.user.id).then((locations) => {
+        res.send(R.map(contracts.installationContract, locations));
+    });
 })
 
 app.get('/api/user/:id', function(req, res) {
@@ -137,7 +151,9 @@ app.get('/api/user/:id', function(req, res) {
         res.status(401).json({reason: 'The user cannot perform that operation'});
         return;
     }
-	userService.getUserById(req, res);
+	userService.getUserById(req.params.id).then((user) => {
+        res.send(contracts.userContract(user));
+    });;
 })
 
 app.put('/api/user/:id', function(req, res) {
@@ -146,7 +162,15 @@ app.put('/api/user/:id', function(req, res) {
         return;
     }
 	var body = req.body;
-    userService.updateUser(req, res, body);
+    var userId = req.params.id;
+    userService.updateUser(body, userId).then((user) => {
+        if (user) {
+            res.send(contracts.userContract(user));
+        } else {
+            res.code(403).json({reason: 'passwords do not match'});
+        }
+        ;
+    });
 })
 
 app.post('/api/user/:id/installation', function(req, res) {
@@ -242,8 +266,17 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
     }
 
 	const report = req.body;
-    reportService.postReport(req, res, report);
+    var options = {
+        scriptPath: 'ipToas',
+        args: [report.ip]
+    };
 
+    PythonShell.run('info.py', options, function (err, result) {
+        if (err) res.status(500).send('Could not calculate ipToAs');
+
+        const as = result[0].split(',')[0];
+        reportService.postReport(report, as).then((measure) => res.send(contracts.measureContract(measure)));
+    });
 })
 
 app.get('/api/admin/reports', function(req,res){

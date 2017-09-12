@@ -1,6 +1,4 @@
 var Location = require('../models/Location');
-var contracts = require('../contracts');
-var R = require('ramda');
 
 var deleteInstallation = (installationId, userId) => {
     return Location.where('id', installationId).where('user_id', userId).where('enabled', true).fetch()
@@ -20,10 +18,8 @@ var getInstallations = (userId) => {
     return Location.where('user_id', userId).where('enabled', true).fetchAll({withRelated: ['providers']})
 };
 
-var getInstallationByUserId = (req, res) => {
-    Location.where('user_id', req.user.id).fetchAll().then((locations) => {
-        res.send(R.map(contracts.installationContract, locations));
-    })
+var getInstallationByUserId = (userId) => {
+    Location.where('user_id', userId).fetchAll();
 }
 
 var createInstallation = (location, user) => {

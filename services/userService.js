@@ -1,83 +1,66 @@
 var User = require('../models/User');
-var contracts = require('../contracts');
 var nodemailer = require('nodemailer');
 var uuidv4 = require('uuid/v4');
 var Crypto = require('crypto');
-var R = require('ramda');
 
-var updateUser = (req, res, body) => {
-    return User.where('id', req.params.id).fetch().then((user) => {
+var updateUser = (body, userId) => {
+    return User.where('id', userId).fetch().then((user) => {
         if (hashPassword(body.oldPassword, user.get('salt')) !== user.get('password')) {
-            res.code(403).json({reason: 'passwords do not match'});
-            return;
+            return null;
         }
         if(body.newPassword) {
             var salt = generateSalt();
             var hashedPassword = hashPassword(body.newPassword, salt);
-            user.save({password: hashedPassword, salt: salt}, {
+            return user.save({password: hashedPassword, salt: salt}, {
                 method: 'update',
                 patch: true
-            }).then((user) => res.send(contracts.userContract(user)));
+            });
         } else if(body.username){
-            user.save({username: body.username}, {method: 'update', patch: true}).then((user) => res.send(userContract(user)));
+            return user.save({username: body.username}, {method: 'update', patch: true});
         }
     });
 };
 
-var createUser = (res, user) => {
+var createUser = (username, password) => {
     var salt = generateSalt();
-    var hashedPassword = hashPassword(user.password1, salt);
-    User.forge({
-        username: user.username,
+    var hashedPassword = hashPassword(password, salt);
+    return User.forge({
+        username: username,
         password: hashedPassword,
         role: 'user',
         salt: salt,
         enabled: true
-    }).save().then((user) => {
-        res.send({
-            username: user.get('username'),
-            id: user.get('id'),
-        });
-    }, (error) => {
-        res.status(403).json({reason: 'Error while creating user'});
-    })
+    }).save();
 }
 
-var getUserById = (req, res) => {
-    User.where('id', req.params.id).fetch().then((user) => {
-        res.send(contracts.userContract(user));
-    });
+var getUserById = (userId) => {
+    User.where('id', userId).fetch();
 };
 
-var getAllUsers = (req, res) => {
-    User.fetchAll().then((users) => {
-        res.send(R.map(contracts.userContract, users));
-    });
+var getAllUsers = () => {
+    User.fetchAll();
 }
 
-var getUserByUsernameAndPassword = (req, res) => {
-    User.where('username', req.body.email).fetch().then(user => {
-        if(user.get('recoveryToken') === req.body.code){
+var updatePassword = (email, recoveryCode, newPassword) => {
+    User.where('username', email).fetch().then(user => {
+        if(user.get('recoveryToken') === recoveryCode){
             var salt = generateSalt();
-            var hashedPassword = hashPassword(req.body.password, salt);
-            user.save({password: hashedPassword, salt: salt, recoveryToken: null},{method: 'update', patch: true}).then((answer) => res.status(200).json({reason: 'Password updated successfully'}));
-        } else{
-            res.send(403).json({reason: 'Incorrect code'});
+            var hashedPassword = hashPassword(newPassword, salt);
+            user.save({password: hashedPassword, salt: salt, recoveryToken: null},{method: 'update', patch: true});
         }
 
     });
 };
 
-var sendUserRecoveryEmail = (req, res) => {
-    User.where('username', req.body.email).fetch().then(user => {
+var sendUserRecoveryEmail = (email) => {
+    return User.where('username', email).fetch().then(user => {
         var recoveryToken = uuidv4();
-        user.save({recoveryToken: recoveryToken},{method: 'update', patch: true}).then((answer) => res.status(200).json({reason: 'Recovery code sent successfully'}));
         transporter.sendMail(createEmail(user.username, recoveryToken), (error, info) => {
             if (error) {
                 return console.log(error);
             }
-            console.log('Message %s sent: %s', info.messageId, info.response);
         });
+        return user.save({recoveryToken: recoveryToken},{method: 'update', patch: true});
     });
 };
 
@@ -120,10 +103,11 @@ var hashPassword = (password, salt) => {
 
 module.exports = {
     sendUserRecoveryEmail: sendUserRecoveryEmail,
-    getUserByUsernameAndPassword: getUserByUsernameAndPassword,
+    updatePassword: updatePassword,
     getAllUsers: getAllUsers,
     getUserById: getUserById,
     createUser: createUser,
     updateUser: updateUser,
     hashPassword: hashPassword,
+    generateSalt: generateSalt,
 };
