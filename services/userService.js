@@ -92,8 +92,6 @@ function generateSalt() {
 };
 
 var hashPassword = (password, salt) => {
-    console.log(password);
-    console.log(salt);
     var hmac =  Crypto.createHmac('sha512', salt);
     hmac.setEncoding("base64");
     hmac.write(password);

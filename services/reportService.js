@@ -1,18 +1,15 @@
 var Measure = require('../models/Measure');
-var Provider = require('../models/Provider');
 var LocationProvider = require('../models/LocationProvider');
-var PythonShell = require('python-shell');
+var providerService = require('./providerService');
 
 var getAdminReports = (startDate, endDate, providerId) => {
     return getReports(null, null, providerId, startDate, endDate);
 }
 
 var postReport = (report, as, installationId, userId) => {
-    return Provider.where('name', as).fetch().then((provider) => {
+    return providerService.getProviderByAs(as).then((provider) => {
         if(!provider){
-            return Provider.forge({
-                name: as
-            }).save().then((provider) => {
+            return providerService.createProvider(as).then((provider) => {
                 return createReport(report, provider.id, installationId, userId);
             })
         } else {

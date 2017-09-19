@@ -55,5 +55,6 @@ exports.down = function(knex, Promise) {
 			.dropTable('provider')
     		.dropTable('location')
     		.dropTable('user')
+			.dropTable('location_provider')
 	])
 };

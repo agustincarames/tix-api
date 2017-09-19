@@ -19,7 +19,7 @@ var getInstallations = (userId) => {
 };
 
 var getInstallationByUserId = (userId) => {
-    Location.where('user_id', userId).fetchAll();
+    return Location.where('user_id', userId).fetchAll();
 }
 
 var createInstallation = (location, user) => {
