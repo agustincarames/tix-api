@@ -272,9 +272,11 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
         return;
     }
 
+    const installationId = req.params.installationId;
+    const userId = req.params.userId;
 	const report = req.body;
     var options = {
-        scriptPath: 'ipToas',
+        scriptPath: 'ipToAs',
         args: [report.ip]
     };
 
@@ -282,7 +284,7 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
         if (err) res.status(500).send('Could not calculate ipToAs');
 
         const as = result[0].split(',')[0];
-        reportService.postReport(report, as).then((measure) => res.send(contracts.measureContract(measure)));
+        reportService.postReport(report, as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
     });
 })
 
