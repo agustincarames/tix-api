@@ -273,7 +273,7 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
     }
 
     const installationId = req.params.installationId;
-    const userId = req.params.userId;
+    const userId = req.params.id;
 	const report = req.body;
     var options = {
         scriptPath: 'ipToAs',
