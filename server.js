@@ -209,7 +209,7 @@ app.get('/api/user/:id/installation/:installationId', function(req,res) {
     const installationId = req.params.installationId;
 	locationService.getInstallation(installationId, userId).then((installation) => {
 	    if(installation){
-            res.send(installationContract(installation));
+            res.send(contracts.installationContract(installation));
         } else {
 	        res.status(404).send("Not Found");
         }
