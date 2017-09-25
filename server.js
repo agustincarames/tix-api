@@ -17,6 +17,7 @@ var User = require('./models/User');
 var json2csv = require('json2csv');
 var contracts = require('./contracts');
 var R = require('ramda');
+var PythonShell = require('python-shell');
 
 app.use(bodyParser.json());
 app.use(cors());
