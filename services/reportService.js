@@ -37,6 +37,8 @@ function createReport(report, provider_id, installation_id, user_id){
 }
 
 var getReports = (userId, installationId, providerId, startDate, endDate) => {
+    var realEndDate = new Date();
+    realEndDate.setDate((new Date(endDate).getDate() + 1));
     var query = Measure;
     if(userId) {
         query = query.where('user_id', userId);
@@ -51,7 +53,7 @@ var getReports = (userId, installationId, providerId, startDate, endDate) => {
         query = query.where('timestamp', '>=' , startDate);
     }
     if(endDate){
-        query = query.where('timestamp', '<=', endDate);
+        query = query.where('timestamp', '<=', realEndDate);
     }
     return query.fetchAll();
 }
