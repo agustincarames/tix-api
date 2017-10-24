@@ -40,6 +40,10 @@ passport.use(new LocalStrategy(
 
 passport.use(new JwtStrategy({ secretOrKey: tokenSecret, jwtFromRequest: ExtractJwt.fromAuthHeader() }, 
 	function(jwt_payload, done) {
+        if(!jwt_payload.expires || jwt_payload.expires > new Date()){
+            done(null, false);
+            return;
+        }
 	    User.where('username', jwt_payload.userId).fetch().then((user) => {
 	        if (user) {
 	            done(null, user.toJSON());
@@ -92,7 +96,9 @@ app.post('/api/login', function(req, res, next) {
 	    if (!user) {
 	      return res.status(401).json({ reason: 'User/Password incorrect' });
 	    }
-	    var token = jwt.encode({ userId: user.username}, tokenSecret);
+	    var expireDate = new Date();
+        expireDate.setDate(dat.getDate() + 1);
+	    var token = jwt.encode({ userId: user.username, expires: expireDate}, tokenSecret);
 	    res.status(200).json({ token : token , username: user.username, id: user.id, role: user.role });
   	})(req, res, next);
 })
@@ -170,6 +176,10 @@ app.put('/api/user/:id', function(req, res) {
     }
 	var body = req.body;
     var userId = req.params.id;
+    if(body.role && req.user.role !== 'admin') {
+        res.status(403).json({reason: 'The user cannot perform that operation'});
+        return;
+    }
     userService.updateUser(body, userId).then((user) => {
         if (user) {
             res.send(contracts.userContract(user));

@@ -17,6 +17,8 @@ var updateUser = (body, userId) => {
             });
         } else if(body.username){
             return user.save({username: body.username}, {method: 'update', patch: true});
+        } else if(body.role){
+            return user.save({role: body.role}, {method: 'update', patch: true});
         }
     });
 };
