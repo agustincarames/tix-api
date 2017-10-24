@@ -3,9 +3,9 @@ var nodemailer = require('nodemailer');
 var uuidv4 = require('uuid/v4');
 var Crypto = require('crypto');
 
-var updateUser = (body, userId) => {
+var updateUser = (body, userId, isAdmin) => {
     return User.where('id', userId).fetch().then((user) => {
-        if (hashPassword(body.oldPassword, user.get('salt')) !== user.get('password')) {
+        if (!isAdmin || hashPassword(body.oldPassword, user.get('salt')) !== user.get('password')) {
             return null;
         }
         if(body.newPassword) {

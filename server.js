@@ -97,7 +97,7 @@ app.post('/api/login', function(req, res, next) {
 	      return res.status(401).json({ reason: 'User/Password incorrect' });
 	    }
 	    var expireDate = new Date();
-        expireDate.setDate(dat.getDate() + 1);
+        expireDate.setDate(expireDate.getDate() + 1);
 	    var token = jwt.encode({ userId: user.username, expires: expireDate}, tokenSecret);
 	    res.status(200).json({ token : token , username: user.username, id: user.id, role: user.role });
   	})(req, res, next);
@@ -180,7 +180,7 @@ app.put('/api/user/:id', function(req, res) {
         res.status(403).json({reason: 'The user cannot perform that operation'});
         return;
     }
-    userService.updateUser(body, userId).then((user) => {
+    userService.updateUser(body, userId, req.user.role === 'admin').then((user) => {
         if (user) {
             res.send(contracts.userContract(user));
         } else {
