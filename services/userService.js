@@ -5,7 +5,7 @@ var Crypto = require('crypto');
 
 var updateUser = (body, userId, isAdmin) => {
     return User.where('id', userId).fetch().then((user) => {
-        if (!isAdmin || hashPassword(body.oldPassword, user.get('salt')) !== user.get('password')) {
+        if (!isAdmin && hashPassword(body.oldPassword, user.get('salt')) !== user.get('password')) {
             return null;
         }
         if(body.newPassword) {

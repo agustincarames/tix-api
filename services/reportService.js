@@ -1,3 +1,4 @@
+var moment = require('moment');
 var Measure = require('../models/Measure');
 var LocationProvider = require('../models/LocationProvider');
 var providerService = require('./providerService');
@@ -53,7 +54,7 @@ var getReports = (userId, installationId, providerId, startDate, endDate) => {
         query = query.where('timestamp', '>=' , startDate);
     }
     if(endDate){
-        query = query.where('timestamp', '<=', realEndDate);
+        query = query.where('timestamp', '<=', moment(endDate).add(1, 'days'));
     }
     return query.fetchAll();
 }
