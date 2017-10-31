@@ -13,9 +13,9 @@ module.exports = {
         debug: true,
         client: 'mysql',
         connection: {
-            host     : '127.0.0.1',
-            user     : 'root',
-            password : 'root',
+            host     : 'mysql',
+            user     : 'tix',
+            password : 'tix',
             database : 'tix',
             charset  : 'utf8'
         },
@@ -26,7 +26,7 @@ module.exports = {
     production: {
         client: 'mysql',
         connection: {
-            host     : '127.0.0.1',
+            host     : 'mysql',
             user     : 'tix',
             password : 'tix',
             database : 'tix',
