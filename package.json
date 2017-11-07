@@ -24,6 +24,7 @@
     "knex": "^0.12.6",
     "moment": "^2.19.1",
     "mysql": "^2.13.0",
+    "newrelic": "^2.3.2",
     "nodemailer": "^4.0.1",
     "passport": "^0.3.2",
     "passport-http": "^0.3.0",
