@@ -25,6 +25,8 @@ app.use(cors());
 
 var tokenSecret = 'verySecret';
 
+var ipToAsMap = {};
+
 passport.use(new LocalStrategy(
   	function(username, password, done) {
     	User.where('username', username).fetch().then((user) => {
@@ -274,7 +276,7 @@ app.get('/api/user/:id/reports', function(req, res) {
     const userId = req.params.id;
     reportService.getReports(userId, installationId, providerId, startDate, endDate).then((reports) => {
         res.send(reports.map((report) => contracts.measureContract(report)));
-    });;
+    });
 })
 
 app.post('/api/user/:id/installation/:installationId/reports', function(req,res) {
@@ -286,17 +288,22 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
     const installationId = req.params.installationId;
     const userId = req.params.id;
 	const report = req.body;
-    var options = {
-        scriptPath: 'ipToAs',
-        args: [report.ip]
-    };
+    if(!ipToAsMap[report.ip]){
+        var options = {
+            scriptPath: 'ipToAs',
+            args: [report.ip]
+        };
 
-    PythonShell.run('info.py', options, function (err, result) {
-        if (err) res.status(500).send('Could not calculate ipToAs');
+        PythonShell.run('info.py', options, function (err, result) {
+            if (err) res.status(500).send('Could not calculate ipToAs');
 
-        const as = result[0].split(',')[0];
-        reportService.postReport(report, as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
-    });
+            const as = result[0].split(',')[0];
+            ipToAsMap[report.ip] = as;
+            reportService.postReport(report, as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
+        });
+    } else {
+        reportService.postReport(report, ipToAsMap[report.ip], installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
+    }
 })
 
 app.get('/api/admin/reports', function(req,res){
