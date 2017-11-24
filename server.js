@@ -19,6 +19,8 @@ var json2csv = require('json2csv');
 var contracts = require('./contracts');
 var R = require('ramda');
 var PythonShell = require('python-shell');
+var moment = require('moment');
+
 
 app.use(bodyParser.json());
 app.use(cors());
@@ -43,7 +45,7 @@ passport.use(new LocalStrategy(
 
 passport.use(new JwtStrategy({ secretOrKey: tokenSecret, jwtFromRequest: ExtractJwt.fromAuthHeader() }, 
 	function(jwt_payload, done) {
-        if(!jwt_payload.expires || jwt_payload.expires > new Date()){
+        if(!jwt_payload.expires || moment(jwt_payload.expires) < moment() ){
             done(null, false);
             return;
         }
@@ -99,8 +101,7 @@ app.post('/api/login', function(req, res, next) {
 	    if (!user) {
 	      return res.status(401).json({ reason: 'User/Password incorrect' });
 	    }
-	    var expireDate = new Date();
-        expireDate.setDate(expireDate.getDate() + 1);
+	    var expireDate = moment().add(1, "days");
 	    var token = jwt.encode({ userId: user.username, expires: expireDate}, tokenSecret);
 	    res.status(200).json({ token : token , username: user.username, id: user.id, role: user.role });
   	})(req, res, next);
@@ -288,7 +289,7 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
     const installationId = req.params.installationId;
     const userId = req.params.id;
 	const report = req.body;
-    if(!ipToAsMap[report.ip]){
+    if(!ipToAsMap[report.ip] || ipToAsMap[report.ip].date < moment().subtract(1, "days")){
         var options = {
             scriptPath: 'ipToAs',
             args: [report.ip]
@@ -298,7 +299,9 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
             if (err) res.status(500).send('Could not calculate ipToAs');
 
             const as = result[0].split(',')[0];
-            ipToAsMap[report.ip] = as;
+            ipToAsMap[report.ip] = {};
+            ipToAsMap[report.ip].as = as;
+            ipToAsMap[report.ip].date = moment();
             reportService.postReport(report, as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
         });
     } else {
