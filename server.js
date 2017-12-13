@@ -70,7 +70,7 @@ passport.use(new BasicStrategy(
 ));
 
 app.get('/api', function (req, res) {
-  res.send('Hello World!')
+  res.send('')
 })
 
 app.post('/api/register', function(req, res) {
@@ -134,18 +134,6 @@ app.all('/api/admin/*', passport.authenticate(['jwt','basic'], { session: false 
         next();
 	}
 })
-
-app.get('/api/user/all', function(req, res){
-	const user = req.user;
-	if(user.role === 'admin') {
-        userService.getAllUsers().then((users) => {
-            res.send(R.map(contracts.userContract, users));
-        });;
-    }else{
-		res.status(401).json({reason: "You are not authorized to perform that action"});
-	}
-})
-
 
 app.get('/api/user/current', function(req, res) {
     var user = req.user;
@@ -305,10 +293,21 @@ app.post('/api/user/:id/installation/:installationId/reports', function(req,res)
             reportService.postReport(report, as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
         });
     } else {
-        reportService.postReport(report, ipToAsMap[report.ip], installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
+        reportService.postReport(report, ipToAsMap[report.ip].as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
     }
 })
 
+app.get('/api/admin/users', function(req, res){
+    const user = req.user;
+    if(user.role === 'admin') {
+        userService.getAllUsers().then((users) => {
+            res.send(R.map(contracts.userContract, users));
+        });;
+    }else{
+        res.status(401).json({reason: "You are not authorized to perform that action"});
+    }
+})
+:
 app.get('/api/admin/reports', function(req,res){
     const {
         startDate,
