@@ -302,12 +302,12 @@ app.get('/api/admin/users', function(req, res){
     if(user.role === 'admin') {
         userService.getAllUsers().then((users) => {
             res.send(R.map(contracts.userContract, users));
-        });;
+        });
     }else{
         res.status(401).json({reason: "You are not authorized to perform that action"});
     }
 })
-:
+
 app.get('/api/admin/reports', function(req,res){
     const {
         startDate,
