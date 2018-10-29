@@ -1,6 +1,5 @@
 require('newrelic');
 var express = require('express');
-var app = express();
 var bodyParser = require('body-parser');
 var passport = require('passport');
 var BasicStrategy = require('passport-http').BasicStrategy;
@@ -22,8 +21,13 @@ var PythonShell = require('python-shell');
 var moment = require('moment');
 
 
+var app = express();
 app.use(bodyParser.json());
 app.use(cors());
+
+var internalApp = express();
+internalApp.use(bodyParser.json());
+internalApp.use(cors());
 
 var tokenSecret = 'verySecret';
 
@@ -268,35 +272,6 @@ app.get('/api/user/:id/reports', function(req, res) {
     });
 })
 
-app.post('/api/user/:id/installation/:installationId/reports', function(req,res) {
-    if(req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
-        res.status(401).json({reason: 'The user cannot perform that operation'});
-        return;
-    }
-
-    const installationId = req.params.installationId;
-    const userId = req.params.id;
-	const report = req.body;
-    if(!ipToAsMap[report.ip] || ipToAsMap[report.ip].date < moment().subtract(1, "days")){
-        var options = {
-            scriptPath: 'ipToAs',
-            args: [report.ip]
-        };
-
-        PythonShell.run('info.py', options, function (err, result) {
-            if (err) res.status(500).send('Could not calculate ipToAs');
-
-            const as = result[0].split(',')[0];
-            ipToAsMap[report.ip] = {};
-            ipToAsMap[report.ip].as = as;
-            ipToAsMap[report.ip].date = moment();
-            reportService.postReport(report, as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
-        });
-    } else {
-        reportService.postReport(report, ipToAsMap[report.ip].as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
-    }
-})
-
 app.get('/api/admin/users', function(req, res){
     const user = req.user;
     if(user.role === 'admin') {
@@ -335,7 +310,52 @@ app.get('/api/admin/reports.csv', function(req,res){
     });
 });
 
-
 app.listen(3001, function () {
   console.log('TiX api app listening on port 3001!')
+});
+
+internalApp.get('/api/user/:id', function(req, res) {
+	userService.getUserById(req.params.id).then((user) => {
+		res.send(contracts.userContract(user));
+	});;
+})
+
+internalApp.get('/api/user/:id/installation/:installationId', function(req,res) {
+	const userId = req.params.id;
+	const installationId = req.params.installationId;
+	locationService.getInstallation(installationId, userId).then((installation) => {
+		if(installation){
+			res.send(contracts.installationContract(installation));
+		} else {
+			res.status(404).send("Not Found");
+		}
+	});
+})
+
+internalApp.post('/api/user/:id/installation/:installationId/reports', function(req,res) {
+    const installationId = req.params.installationId;
+    const userId = req.params.id;
+	const report = req.body;
+    if(!ipToAsMap[report.ip] || ipToAsMap[report.ip].date < moment().subtract(1, "days")){
+        var options = {
+            scriptPath: 'ipToAs',
+            args: [report.ip]
+        };
+
+        PythonShell.run('info.py', options, function (err, result) {
+            if (err) res.status(500).send('Could not calculate ipToAs');
+
+            const as = result[0].split(',')[0];
+            ipToAsMap[report.ip] = {};
+            ipToAsMap[report.ip].as = as;
+            ipToAsMap[report.ip].date = moment();
+            reportService.postReport(report, as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
+        });
+    } else {
+        reportService.postReport(report, ipToAsMap[report.ip].as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
+    }
+})
+
+internalApp.listen(3002, function () {
+  console.log('TiX api app listening on port 3002!')
 });
