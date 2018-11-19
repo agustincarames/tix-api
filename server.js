@@ -343,7 +343,10 @@ internalApp.post('/api/user/:id/installation/:installationId/reports', function(
         };
 
         PythonShell.run('info.py', options, function (err, result) {
-            if (err) res.status(500).send('Could not calculate ipToAs');
+            if (err) {
+                res.status(500).send('Could not calculate ipToAs');
+                throw err;
+            }
 
             const as = result[0].split(',')[0];
             ipToAsMap[report.ip] = {};
