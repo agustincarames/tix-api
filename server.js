@@ -9,6 +9,7 @@ var jwt = require('jwt-simple');
 var JwtStrategy = require('passport-jwt').Strategy;
 var ExtractJwt = require('passport-jwt').ExtractJwt;
 var sa = require('superagent');
+var asService = require('./services/asService');
 var reportService = require('./services/reportService');
 var providerService = require('./services/providerService');
 var locationService = require('./services/locationService');
@@ -17,7 +18,6 @@ var User = require('./models/User');
 var json2csv = require('json2csv');
 var contracts = require('./contracts');
 var R = require('ramda');
-var PythonShell = require('python-shell');
 var moment = require('moment');
 
 
@@ -335,28 +335,25 @@ internalApp.get('/api/user/:id/installation/:installationId', function(req,res) 
 internalApp.post('/api/user/:id/installation/:installationId/reports', function(req,res) {
     const installationId = req.params.installationId;
     const userId = req.params.id;
-	const report = req.body;
-    if(!ipToAsMap[report.ip] || ipToAsMap[report.ip].date < moment().subtract(1, "days")){
-        var options = {
-            scriptPath: 'ipToAs',
-            args: [report.ip]
-        };
+    const report = req.body;
 
-        PythonShell.run('info.py', options, function (err, result) {
-            if (err) {
-                res.status(500).send('Could not calculate ipToAs');
-                throw err;
-            }
+    const doPost = (asName) => reportService.postReport(report, asName, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)))
 
-            const as = result[0].split(',')[0];
+    const cached = ipToAsMap[report.ip]
+    if(cached && cached.date >= moment().subtract(1, "days")) {
+        return doPost(cached.as);
+    }
+
+    asService.getASName(report.ip).then((as) => {
+        if (as) {
             ipToAsMap[report.ip] = {};
             ipToAsMap[report.ip].as = as;
             ipToAsMap[report.ip].date = moment();
-            reportService.postReport(report, as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
-        });
-    } else {
-        reportService.postReport(report, ipToAsMap[report.ip].as, installationId, userId).then((measure) => res.send(contracts.measureContract(measure)));
-    }
+            return doPost(as);
+        } else {
+            return doPost('UNKNOWN');
+        }
+    });
 })
 
 internalApp.listen(3002, function () {

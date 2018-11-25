@@ -1,10 +1,4 @@
-FROM node:boron
-
-# Install python dependencies
-RUN apt-get update \
-	&& apt-get install python-setuptools python-dev build-essential -y \
-	&& easy_install pip \
-	&& pip install mysqlclient
+FROM node:boron-alpine
 
 # Create app directory
 WORKDIR /usr/src/app
