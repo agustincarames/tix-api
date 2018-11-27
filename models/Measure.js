@@ -1,16 +1,8 @@
-var db  = require('./db');
+var db  = require('./db-stats');
 var Bookshelf = require('bookshelf')(db);
-var Location = require('./Location');
-var Provider = require('./Provider');
 Bookshelf.plugin('registry');
 
 module.exports = Bookshelf.Model.extend({
     tableName: 'measure',
-    hasTimestamps: true,
-    provider: function() {
-        return this.belongsTo(Provider, 'provider_id');
-    },
-    location: function() {
-        return this.belongsTo(Location, 'location_id');
-    }
+    hasTimestamps: true
 });

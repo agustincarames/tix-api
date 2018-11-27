@@ -13,7 +13,7 @@ module.exports = {
         debug: true,
         client: 'mysql',
         connection: {
-            host     : process.env.TIX_API_MYSQL_USERS_HOST,
+            host     : process.env.TIX_API_MYSQL_STATS_HOST,
             port     : 3306,
             user     : 'tix',
             password : 'tix',
