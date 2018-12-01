@@ -1,4 +1,5 @@
 var moment = require('moment');
+var User = require('../models/User');
 var Measure = require('../models/Measure');
 var LocationProvider = require('../models/LocationProvider');
 var providerService = require('./providerService');
@@ -25,6 +26,9 @@ function createReport(report, provider_id, installation_id, user_id){
             LocationProvider.forge({location_id: installation_id, provider_id: provider_id}).save();
         }
     });
+
+    User.query().where('id', user_id).increment('measures_count', 1).then(user => {console.log("Increment measure in user '" + user_id + "'.");});
+
     return Measure.forge({
         upUsage: report.upUsage,
         downUsage: report.downUsage,
