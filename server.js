@@ -348,11 +348,11 @@ internalApp.post('/api/user/:id/installation/:installationId/reports', function(
     }
 
     asService.getASName(report.ip).then((as) => {
-        if (as) {
+        if (as.name) {
             ipToAsMap[report.ip] = {};
-            ipToAsMap[report.ip].as = as;
+            ipToAsMap[report.ip].as = as.name;
             ipToAsMap[report.ip].date = moment();
-            return doPost(as);
+            return doPost(as.name);
         } else {
             return doPost('UNKNOWN');
         }
