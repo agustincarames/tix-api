@@ -33,6 +33,9 @@ var tokenSecret = 'verySecret';
 
 var ipToAsMap = {};
 
+// Fix for https://github.com/tgriesser/knex/issues/1851
+Function.prototype.future = null;
+
 passport.use(new LocalStrategy(
   	function(username, password, done) {
     	User.where('username', username).fetch().then((user) => {
